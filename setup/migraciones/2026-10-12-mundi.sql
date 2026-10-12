@@ -131,4 +131,5 @@ select case when
          where p.schemaname = 'storage' and p.tablename = 'objects' and p.policyname like 'mundi %') = 3
     and exists (select 1 from storage.buckets b where b.id = 'mundi-fotos' and not b.public)
     and not has_table_privilege('anon', 'public.mundi_pinchos', 'select')
-  then 'PASA' else 'FALLA' end as mundi_bd;
+  then 'PASA' else 'FALLA' end as mundi_bd,
+  (select string_agg(correo, ', ') from public.mundi_personas) as con_acceso;
