@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prueba del mapa</title>
+<!-- Prueba de la Caja Mapa en el navegador, con pinchos inventados. Se abre con la vista previa «mundi»:
+     http://localhost:8126/setup/pruebas/mapa.html — no toca Supabase. -->
+<style>
+  :root { color-scheme: light dark; }
+  html, body { height: 100%; margin: 0; font: 14px system-ui, sans-serif; background: #E4ECEF; color: #0F2A3A; }
+  @media (prefers-color-scheme: dark) {
+    :root { --pared: #081218; --mar: #0D2130; --tierra: #1B3141; --tierra-borde: #2D4A5D; --visitado: #C98A24;
+      --visitado-borde: #EAAA3C; --pin: #FF5446; --tinta: #E6F0F4; --tinta-2: #A3B8C2; --tinta-3: #7690A0; --sup: #112330;
+      --grat: rgba(230, 240, 244, .07); }
+    html, body { background: #081218; color: #E6F0F4; }
+  }
+  #mapa { position: fixed; inset: 0 0 64px 0; }
+  #registro { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; overflow: auto; padding: 6px 12px; box-sizing: border-box;
+    font: 12px ui-monospace, monospace; border-top: 1px solid rgba(127, 127, 127, .3); }
+  #botones { position: fixed; top: 10px; right: 10px; display: flex; gap: 6px; }
+  #botones button { font: inherit; padding: 6px 10px; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+</head>
+<body>
+<div id="mapa"></div>
+<div id="botones"><button id="encuadrar">Encuadrar</button><button id="madrid">Ir a Madrid</button></div>
+<div id="registro">Cargando el mapa…</div>
+<script type="module">
+  import { crearMapa } from "../../mapa.js";
+
+  const registro = document.getElementById("registro");
+  const anotar = (texto) => {
+    const linea = document.createElement("div");
+    linea.textContent = texto;
+    registro.prepend(linea);
+  };
+
+  // Lugares inventados para la prueba
+  const pinchos = [
+    { id: "p1", nombre: "Madrid", pais: "ES", lat: 40.4168, lon: -3.7038 },
+    { id: "p2", nombre: "París", pais: "FR", lat: 48.8566, lon: 2.3522 },
+    { id: "p3", nombre: "Lyon", pais: "FR", lat: 45.764, lon: 4.8357 },
+    { id: "p4", nombre: "Santorini", pais: "GR", lat: 36.3932, lon: 25.4615 },
+    { id: "p5", nombre: "Santiago", pais: "CL", lat: -33.4489, lon: -70.6693 },
+    { id: "p6", nombre: "Kioto", pais: "JP", lat: 35.0116, lon: 135.7681 },
+    { id: "p7", nombre: "Reikiavik", pais: "IS", lat: 64.1466, lon: -21.9426 },
+  ];
+
+  try {
+    const mapa = await crearMapa(document.getElementById("mapa"), {
+      alTocarPincho: (p) => anotar(`Pincho: ${p.nombre} (${p.id})`),
+      alTocarPunto: (punto) => {
+        anotar(`Punto: ${punto.lat}, ${punto.lon} → ${punto.pais ?? "sin país"}`);
+        mapa.marcarPunto(punto.lat, punto.lon);
+      },
+    });
+    mapa.pintar(pinchos, { resaltar: "p4" });
+    window.mapa = mapa;
+    window.pinchosDePrueba = pinchos;
+    document.getElementById("encuadrar").onclick = () => mapa.encuadrar();
+    document.getElementById("madrid").onclick = () => mapa.irA(40.4168, -3.7038);
+    anotar("Mapa listo: toca un pincho, un grupo o un punto.");
+  } catch (e) {
+    anotar("Error: " + e.message);
+  }
+</script>
+</body>
+</html>

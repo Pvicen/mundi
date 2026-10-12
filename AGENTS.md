@@ -95,6 +95,7 @@ Orden aprobado: BD → lote de Fotos, Cáscara PWA y Documentación → Mapa →
 | Fotos | lote | `fotos.js` y su prueba `setup/pruebas/fotos.test.mjs` | «Fotos» |
 | Cáscara PWA | lote | `sw.js`, `manifest.webmanifest` e `icons/` (dibujados con `setup/iconos.py`) | «Cáscara PWA» |
 | Documentación | lote | `README.md` y `_config.yml` (lo que no se publica en Pages) | — |
+| Mapa | crítica | `mapa.js`, su prueba `setup/pruebas/mapa.test.mjs` y la página `setup/pruebas/mapa.html` | «Mapa» |
 
 **Lotes (C.C.D. §6):** son críticas toda migración o cambio de RLS o del almacén, el mapa y lo que toque la sesión o
 los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir en lote.
@@ -136,11 +137,12 @@ Vista previa local: configuración `mundi` de `C:\Dev\.claude\launch.json` (puer
 Gate mínimo antes de commitear:
 
 ```powershell
-node --check fotos.js; node --check sw.js; node --test
+node --check fotos.js; node --check mapa.js; node --check sw.js; node --test
 ```
 
 y abrir la vista previa sin errores en la consola. Lo que solo existe en el navegador (el lienzo de las fotos, el
-service worker) se prueba allí, con datos inventados.
+service worker, el dibujo y los toques del mapa) se prueba allí, con datos inventados: el mapa, en
+http://localhost:8126/setup/pruebas/mapa.html, a 375 px y en escritorio, en claro y en oscuro.
 
 La demo es una sola página. Para verla en local hay que servirla envuelta en `<!doctype html>` con la meta viewport, a
 375 px y en escritorio, en claro y en oscuro, sin errores en la consola. Para actualizar la versión publicada, se

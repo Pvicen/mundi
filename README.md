@@ -10,7 +10,7 @@ personal, una web instalable (PWA) sin build, con los datos en Supabase.
 | Base en Supabase (pinchos, almacén de fotos y permisos) | Hecha y ejecutada (12/10/2026) |
 | Fotos: reducirlas y quitarles el GPS antes de subirlas | Hecha |
 | Cáscara PWA: instalación e icono | Hecha |
-| Mapa | Pendiente |
+| Mapa: países, pinchos agrupados, zoom y toques | Hecho |
 | Interfaz | Pendiente |
 
 ## Cómo está hecha
@@ -25,6 +25,7 @@ personal, una web instalable (PWA) sin build, con los datos en Supabase.
 | `setup/migraciones/2026-10-12-mundi.sql` | La base: tablas, función, almacén y permisos |
 | `setup/pruebas/bd.md` | Prueba de la base en el SQL Editor (lo deshace todo al terminar) |
 | `fotos.js` | Prepara cada foto antes de subirla |
+| `mapa.js` | El mapamundi (d3 y Natural Earth a 1:50 millones); se prueba en `setup/pruebas/mapa.html` |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Lo que permite instalarla y abrirla sin conexión |
 | `setup/iconos.py` | Dibuja los iconos (`py -3 setup/iconos.py`, con Pillow) |
 | `demo/mundi.html` | El prototipo de diseño, con datos inventados |

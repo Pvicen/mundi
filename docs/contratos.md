@@ -66,3 +66,30 @@ Ficheros: `manifest.webmanifest`, `sw.js` e `icons/` (`icono-192.png`, `icono-51
   Google Fonts. Red primero y caché de respaldo, para que funcione sin conexión.
 - **Nunca toca lo que va a Supabase** (datos ni fotos): siempre va directo a la red.
 - Convenio: si cambia un fichero de `ASSETS` o una URL de CDN, se sube el número de `CACHE` (`mundi-v1`, `mundi-v2`…).
+
+## Mapa — el mapamundi
+
+Fichero: `mapa.js` (módulo ES). Prueba: `setup/pruebas/mapa.test.mjs` y, en el navegador, `setup/pruebas/mapa.html`.
+Necesita los globales `d3` (7.9.0) y `topojson` (3.0.2), cargados antes desde cdnjs. La geometría (Natural Earth a
+1:50 millones, `world-atlas@2.0.2/countries-50m.json`) la descarga él desde jsdelivr.
+
+- `crearMapa(contenedor, { alTocarPincho, alTocarPunto })` → `Promise<mapa>`. El mapa llena el `contenedor` (un
+  elemento con tamaño), se adapta si cambia de tamaño y empieza mostrando el mundo entero (en un teléfono en vertical,
+  de alto, y se arrastra a los lados). Si no puede descargar la geometría, la promesa se rechaza con un `Error` cuyo
+  mensaje se puede enseñar tal cual.
+- `mapa.pintar(pinchos, { resaltar } = {})`: pinta los pinchos y colorea los países visitados. Cada pincho es un
+  objeto con, al menos, `{ id, nombre, lat, lon, pais }` (las filas de `mundi_pinchos` valen tal cual). Sustituye lo
+  pintado antes. Los pinchos que en pantalla quedan cerca se agrupan en un círculo con el número; al acercar, se
+  separan. `resaltar` es el `id` de un pincho que entra con animación (el recién guardado).
+- `mapa.encuadrar()`: ajusta la vista para que se vean todos los pinchos (la vista inicial si no hay).
+- `mapa.irA(lat, lon)`: se acerca a ese punto.
+- `mapa.marcarPunto(lat, lon)`: pone un pincho gris provisional (el que se está creando); `mapa.marcarPunto(null)` lo
+  quita.
+- `mapa.paisEn(lat, lon)` → código ISO 3166-1 alfa-2 (`ES`) o `null` si el punto no cae en ningún país.
+- **Toques:** en un pincho → `alTocarPincho(pincho)`, con el mismo objeto que se pasó a `pintar`; en un grupo → el mapa
+  se acerca a sus pinchos; en el mapa, fuera de los pinchos → `alTocarPunto({ lat, lon, pais })`, con `lat` y `lon` en
+  grados (5 decimales) y `pais` como en `paisEn`. Arrastrar o hacer zoom no cuenta como toque. Fuera de la esfera
+  del mundo no avisa.
+- **Colores:** toma las variables CSS de la página si existen (`--mar`, `--tierra`, `--tierra-borde`, `--visitado`,
+  `--visitado-borde`, `--pin`, `--tinta`, `--tinta-2`, `--tinta-3`, `--sup`, `--grat`) y, si no, los de la demo. Sus
+  clases empiezan por `mm-`, para no chocar con las de la Interfaz.

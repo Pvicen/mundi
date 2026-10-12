@@ -8,4 +8,7 @@ Errores o límites no críticos, anotados para no frenar el avance (método C.C.
 | 12/10/2026 | `demo/mundi.html` | Bajo | Lo que se añade vive en memoria y se pierde al recargar | Es una demo; el MVP guarda en Supabase |
 | 12/10/2026 | `sw.js` | Bajo | Sin conexión, la app abre pero las fotos no se ven: sus URL firmadas van siempre a la red | Las fotos son privadas y no se guardan en el teléfono a propósito |
 | 12/10/2026 | Supabase | Bajo | El almacén gratuito (1 GB, unas 3.000 fotos comprimidas) se comparte con la App de avisos | Decisión del 12/10: el mismo proyecto evita que el gratuito se pause |
+| 12/10/2026 | `mapa.js` | Bajo | La geometría de Natural Earth es «de hecho»: Crimea sale como Rusia, y «Indian Ocean Ter.» y «Siachen Glacier» no tienen código (`pais` null) | Casos de borde; se puede corregir con una tabla de excepciones si hace falta |
+| 12/10/2026 | `mapa.js` | Bajo | La primera vez descarga unos 750 KB de geometría (después la guarda `sw.js`) | El detalle hace falta para las islas pequeñas; se podría simplificar con topojson |
+| 12/10/2026 | `mapa.js` | Bajo | Al cambiar de tamaño (girar el teléfono) el mapa se redibuja y vuelve a encuadrar los pinchos: se pierde el zoom que hubiera | Es raro y no rompe nada |
 | 12/10/2026 | `setup/pruebas/bd.md` | Bajo | La prueba completa de la base (32 comprobaciones) no se ha ejecutado; solo la comprobación final de la migración (PASA) y el sondeo sin sesión (401) | Se puede ejecutar cuando Vicente quiera; lo deshace todo |
