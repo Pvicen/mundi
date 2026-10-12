@@ -138,6 +138,10 @@ function crearDatosSupabase() {
     async quitarFotos(rutas) {
       if (rutas.length) comprobar(await sb.storage.from(ALMACEN).remove(rutas));
     },
+    async fotosEn(carpeta) {
+      const lista = comprobar(await sb.storage.from(ALMACEN).list(carpeta, { limit: 1000 }));
+      return lista.filter((x) => x.id).map((x) => `${carpeta}/${x.name}`); // sin id: subcarpetas
+    },
   };
 }
 
@@ -332,7 +336,9 @@ async function borrarLugar() {
   const p = abierto;
   if (!p || !confirm(`¿Borrar «${p.nombre}» y sus fotos? No se puede deshacer.`)) return;
   try {
-    if (p.fotos?.length) await datos.quitarFotos(p.fotos);
+    // Las que cita la fila y todo lo que haya en su carpeta (p. ej., fotos subidas en un guardado que falló)
+    const rutas = new Set([...(p.fotos ?? []), ...(await datos.fotosEn(`${yo.id}/${p.id}`))]);
+    if (rutas.size) await datos.quitarFotos([...rutas]);
     await datos.borrar(p.id);
     pinchos = pinchos.filter((x) => x.id !== p.id);
     abierto = null;
@@ -371,6 +377,7 @@ function abrirForm(p = null) {
     existentes: p ? [...(p.fotos ?? [])] : [],
     quitadas: [],
     nuevas: [],
+    preparando: 0, // fotos elegidas que aún se están preparando
     guardando: false,
   };
   $("#form-titulo").textContent = p ? "Editar lugar" : "Nuevo lugar";
@@ -407,7 +414,8 @@ function ponerEstado(texto) {
 }
 
 function validarForm() {
-  $("#guardar").disabled = !form || form.guardando || !form.donde || !$("#campo-nombre").value.trim();
+  $("#guardar").disabled =
+    !form || form.guardando || form.preparando > 0 || !form.donde || !$("#campo-nombre").value.trim();
 }
 
 function pintarDonde() {
@@ -534,22 +542,30 @@ function estoyAqui() {
 }
 
 async function anadirFotos(archivos) {
-  if (!form) return;
-  const libres = MAX_FOTOS - form.existentes.length - form.nuevas.length;
+  const f = form;
+  if (!f) return;
+  const libres = MAX_FOTOS - f.existentes.length - f.nuevas.length - f.preparando;
   const lista = [...archivos].slice(0, Math.max(0, libres));
   if (archivos.length > lista.length) avisar(`Como mucho ${MAX_FOTOS} fotos por lugar.`);
+  // Mientras quede alguna por preparar, Guardar espera: si no, se guardaría sin ellas
+  f.preparando += lista.length;
+  validarForm();
   for (let i = 0; i < lista.length; i++) {
+    if (form !== f) return;
     ponerEstado(`Preparando fotos: ${i + 1} de ${lista.length}…`);
     try {
       const blob = await prepararFoto(lista[i]);
-      if (!form) return;
-      form.nuevas.push({ blob, url: URL.createObjectURL(blob) });
+      if (form !== f) return;
+      f.nuevas.push({ blob, url: URL.createObjectURL(blob) });
       pintarFotosForm();
     } catch (e) {
       avisar(e.message);
+    } finally {
+      f.preparando--;
+      if (form === f) validarForm();
     }
   }
-  ponerEstado(null);
+  if (form === f && !f.preparando) ponerEstado(null);
 }
 
 function miniatura(url, quitar) {
@@ -593,7 +609,7 @@ async function pintarFotosForm() {
 
 async function guardar(e) {
   e.preventDefault();
-  if (!form || form.guardando) return;
+  if (!form || form.guardando || form.preparando > 0) return;
   const nombre = $("#campo-nombre").value.trim();
   if (!form.donde || !nombre) return;
   form.guardando = true;

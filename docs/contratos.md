@@ -40,7 +40,8 @@ Proyecto de Supabase: el mismo de la App de avisos. Todo lo de Mundi lleva el pr
 - `mundi_personas` no se lee ni se escribe desde la app ni desde la API: se rellena a mano en el SQL Editor.
 - Guardar un pincho con fotos: primero se crea la fila (para tener su `id`), luego se suben las fotos y al final se
   guarda `fotos` con sus rutas.
-- Borrar un pincho: primero se borran sus fotos del almacén y luego la fila (la base no borra archivos).
+- Borrar un pincho: primero se borran sus fotos del almacén (las que cita la fila y todo lo que haya en su carpeta
+  `<dueno>/<id>/`) y luego la fila (la base no borra archivos).
 
 ## Fotos — preparar una foto antes de subirla
 
@@ -109,7 +110,9 @@ Ficheros: `index.html`, `app.js`, `style.css` y `config.js`. Usa los Contratos B
   - `sesion()` → `{ id, correo }` o `null`; `entrar(correo, clave)` → `{ id, correo }` (lanza `Error`); `salir()`.
   - `esPersona()` → boolean (la función `mundi_es_persona`).
   - `listar()` → pinchos; `crear(fila)` → pincho; `actualizar(id, campos)` → pincho; `borrar(id)`.
-  - `subirFoto(ruta, blob)`; `urlsFirmadas(rutas)` → `{ [ruta]: url }`; `quitarFotos(rutas)`.
+  - `subirFoto(ruta, blob)`; `urlsFirmadas(rutas)` → `{ [ruta]: url }`; `quitarFotos(rutas)`; `fotosEn(carpeta)` →
+    las rutas de los archivos de esa carpeta del almacén.
+- **Guardar** espera a que terminen de prepararse las fotos elegidas: mientras tanto, el botón está desactivado.
 - **Datos de ejemplo:** en `localhost` con `?ejemplo`, `datos` es `crearDatosEjemplo()` de
   `setup/pruebas/datos-ejemplo.js`: pinchos inventados en memoria, sin Supabase. Fuera de `localhost`, `?ejemplo` no
   hace nada.

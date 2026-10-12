@@ -95,6 +95,11 @@ export function crearDatosEjemplo() {
       await espera();
       for (const r of rutas) fotos.delete(r);
     },
+    async fotosEn(carpeta) {
+      await espera();
+      if (!carpeta.startsWith(yo.id + "/")) return []; // como el almacén: solo se ve la carpeta propia
+      return [...fotos.keys()].filter((r) => r.startsWith(carpeta + "/") && !r.slice(carpeta.length + 1).includes("/"));
+    },
     // Solo para mirar desde la consola en las pruebas
     _estado: () => ({ pinchos: pinchos.map(copia), fotos: [...fotos.keys()] }),
   };
