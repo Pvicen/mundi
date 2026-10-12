@@ -86,14 +86,25 @@ lugar donde estuvo, sus fotos y su relato. No es un negocio ni una red social ab
 
 ## Cajas de este proyecto
 
-Todavía no hay Cajas: se definen con sus Contratos cuando Vicente los apruebe. `demo/mundi.html` es el prototipo de
-referencia para el diseño, no código de producción.
+Orden aprobado: BD → lote de Fotos, Cáscara PWA y Documentación → Mapa → Interfaz. Los Contratos, en
+`docs/contratos.md`. `demo/mundi.html` es el prototipo de referencia para el diseño, no código de producción.
+
+| Caja | Tipo | Ficheros | Contrato |
+|---|---|---|---|
+| BD | crítica | `setup/migraciones/` y su prueba `setup/pruebas/bd.md` | «BD» de `docs/contratos.md` |
+
+**Lotes (C.C.D. §6):** son críticas toda migración o cambio de RLS o del almacén, el mapa y lo que toque la sesión o
+los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir en lote.
 
 ## Qué no hacer
 
 - **No programar ninguna Caja sin su Contrato aprobado** por Vicente.
 - **No publicar la app ni compartir la demo** sin su orden. La demo publicada es privada.
-- **Lo que se guarda es privado:** solo lo ven las personas que Vicente añada. Nada abierto a desconocidos.
+- **Lo que se guarda es privado:** cada pincho y cada foto, solo de su dueño. Hoy el único usuario es Vicente.
+- **El proyecto de Supabase es el de la App de avisos:** no tocar sus tablas, funciones, políticas ni almacenes. Lo de
+  Mundi lleva siempre el prefijo `mundi`.
+- **No ejecutar SQL ni desplegar.** Lo hace Vicente desde el panel de Supabase: se le deja el archivo y los pasos. Toda
+  migración va en `setup/migraciones/` y se puede ejecutar dos veces.
 - **Quitar el GPS (EXIF) de las fotos** antes de subirlas.
 - **No poner fotos ni datos personales reales en el repo** ni en la demo: los ejemplos son inventados.
 - **No comprar, contratar ni registrar nada**: dominios, planes de pago, cuentas de desarrollador.
@@ -103,12 +114,16 @@ referencia para el diseño, no código de producción.
 
 ## Dónde mirar
 
-- `docs/contexto.md` — la idea, el objetivo, la demo, la técnica propuesta y lo pendiente.
+- `docs/contexto.md` — la idea, el objetivo, la demo, la técnica decidida y lo pendiente.
   **Leerlo entero antes de empezar.**
+- `docs/contratos.md` — los Contratos entre Cajas.
 - `demo/mundi.html` — la fuente de la demo publicada (enlace en `docs/contexto.md`).
 - `DEUDA_TECNICA.md` — errores no críticos anotados.
 
 ## Ejecutar y verificar
+
+La BD: Vicente ejecuta la migración en el SQL Editor de Supabase y después el bloque de `setup/pruebas/bd.md`, que lo
+deshace todo al terminar; tiene que salir todo PASA.
 
 La demo es una sola página. Para verla en local hay que servirla envuelta en `<!doctype html>` con la meta viewport, a
 375 px y en escritorio, en claro y en oscuro, sin errores en la consola. Para actualizar la versión publicada, se
