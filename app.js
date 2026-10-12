@@ -416,6 +416,8 @@ function ponerEstado(texto) {
 function validarForm() {
   $("#guardar").disabled =
     !form || form.guardando || form.preparando > 0 || !form.donde || !$("#campo-nombre").value.trim();
+  // Mientras guarda, el formulario no se toca: lo que se añadiera ya no entraría en el guardado
+  $("#form-lugar").inert = !!form?.guardando;
 }
 
 function pintarDonde() {
@@ -428,7 +430,7 @@ function pintarDonde() {
 }
 
 function elegirLugar(lat, lon, pais, nombre) {
-  if (!form) return;
+  if (!form || form.guardando) return;
   form.donde = { lat: redondear(lat), lon: redondear(lon), pais: pais ?? null };
   if (nombre && !$("#campo-nombre").value.trim()) $("#campo-nombre").value = nombre;
   $("#sugerencias").hidden = true;
@@ -494,6 +496,7 @@ async function sugerirNombre(lat, lon) {
 }
 
 function empezarElegir() {
+  if (!form || form.guardando) return;
   elegirEnMapa = true;
   cerrarHojas({ conservarForm: true });
   $("#aviso-elegir").hidden = false;
@@ -544,6 +547,10 @@ function estoyAqui() {
 async function anadirFotos(archivos) {
   const f = form;
   if (!f) return;
+  if (f.guardando) {
+    avisar("Espera a que termine de guardar para añadir más fotos.");
+    return;
+  }
   const libres = MAX_FOTOS - f.existentes.length - f.nuevas.length - f.preparando;
   const lista = [...archivos].slice(0, Math.max(0, libres));
   if (archivos.length > lista.length) avisar(`Como mucho ${MAX_FOTOS} fotos por lugar.`);
@@ -592,11 +599,13 @@ async function pintarFotosForm() {
   if (!form || turno !== turnoFotos) return;
   const piezas = [
     ...form.existentes.map((ruta) => miniatura(enlaces[ruta], () => {
+      if (form.guardando) return;
       form.existentes = form.existentes.filter((r) => r !== ruta);
       form.quitadas.push(ruta);
       pintarFotosForm();
     })),
     ...form.nuevas.map((n) => miniatura(n.url, () => {
+      if (form.guardando) return;
       form.nuevas = form.nuevas.filter((x) => x !== n);
       URL.revokeObjectURL(n.url);
       pintarFotosForm();
@@ -763,7 +772,7 @@ function ponerEventos() {
     }
   });
   $("#donde-cambiar").addEventListener("click", () => {
-    if (!form) return;
+    if (!form || form.guardando) return;
     form.donde = null;
     mapa?.marcarPunto(null);
     pintarDonde();

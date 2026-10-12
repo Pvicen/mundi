@@ -113,6 +113,7 @@ Ficheros: `index.html`, `app.js`, `style.css` y `config.js`. Usa los Contratos B
   - `subirFoto(ruta, blob)`; `urlsFirmadas(rutas)` → `{ [ruta]: url }`; `quitarFotos(rutas)`; `fotosEn(carpeta)` →
     las rutas de los archivos de esa carpeta del almacén.
 - **Guardar** espera a que terminen de prepararse las fotos elegidas: mientras tanto, el botón está desactivado.
+  Mientras guarda, el formulario queda bloqueado: no se añaden ni quitan fotos ni se cambia el sitio.
 - **Datos de ejemplo:** en `localhost` con `?ejemplo`, `datos` es `crearDatosEjemplo()` de
   `setup/pruebas/datos-ejemplo.js`: pinchos inventados en memoria, sin Supabase. Fuera de `localhost`, `?ejemplo` no
   hace nada.
