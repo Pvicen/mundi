@@ -11,4 +11,10 @@ Errores o límites no críticos, anotados para no frenar el avance (método C.C.
 | 12/10/2026 | `mapa.js` | Bajo | La geometría de Natural Earth es «de hecho»: Crimea sale como Rusia, y «Indian Ocean Ter.» y «Siachen Glacier» no tienen código (`pais` null) | Casos de borde; se puede corregir con una tabla de excepciones si hace falta |
 | 12/10/2026 | `mapa.js` | Bajo | La primera vez descarga unos 750 KB de geometría (después la guarda `sw.js`) | El detalle hace falta para las islas pequeñas; se podría simplificar con topojson |
 | 12/10/2026 | `mapa.js` | Bajo | Al cambiar de tamaño (girar el teléfono) el mapa se redibuja y vuelve a encuadrar los pinchos: se pierde el zoom que hubiera | Es raro y no rompe nada |
+| 12/10/2026 | `app.js` | Bajo | Sin conexión, la app abre pero no carga ni guarda lugares (la lista no se guarda en el teléfono) | Es personal y casi siempre hay red; se puede añadir una copia local |
+| 12/10/2026 | `app.js` | Bajo | Si al editar falla el borrado de una foto quitada, el archivo queda huérfano en el almacén (la fila ya no lo cita) | Raro; ocupa poco. Se puede limpiar a mano |
+| 12/10/2026 | `app.js` | Bajo | Cerrar el formulario sin guardar descarta los cambios sin preguntar | Comodidad; no pierde nada guardado |
+| 12/10/2026 | `app.js` | Bajo | Buscar depende de Nominatim (OpenStreetMap), con uso justo y sin autocompletar: si un día no responde, queda «Elegir en el mapa» y «Estoy aquí» | Gratis y sin cuenta; alternativa: Photon |
+| 12/10/2026 | `sw.js` | Bajo | Cuando la App de avisos se actualiza, su `sw.js` borra las cachés de otros nombres, incluida la de Mundi; se vuelve a llenar sola con red | No se toca la App de avisos |
+| 12/10/2026 | `app.js` | Bajo | En Windows las banderas salen como letras (ES, CL): es el emoji; en el teléfono se ven | Estética de escritorio |
 | 12/10/2026 | `setup/pruebas/bd.md` | Bajo | La prueba completa de la base (32 comprobaciones) no se ha ejecutado; solo la comprobación final de la migración (PASA) y el sondeo sin sesión (401) | Se puede ejecutar cuando Vicente quiera; lo deshace todo |

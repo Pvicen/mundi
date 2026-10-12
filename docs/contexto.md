@@ -73,6 +73,7 @@ Vicente: «soy solo yo, y sigo lo que recomiendas y propones».
 ## 6. Estado y pendiente
 
 - **12/10:** BD hecha y ejecutada en Supabase (`mundi_bd` = PASA, acceso solo para Vicente); lote de Fotos, Cáscara
-  PWA y Documentación hecho. Siguen el Mapa y la Interfaz. El estado de cada parte está en `README.md`.
+  PWA y Documentación hecho; Mapa e Interfaz hechos. Falta publicarla (con su orden). El estado de cada parte está
+  en `README.md`.
 - Pendiente de Vicente: verificar cada Caja al terminarla y ejecutar el SQL en Supabase. Lo que tenga que pegar se
   le da completo y ya rellenado.

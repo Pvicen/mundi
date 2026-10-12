@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mundi</title>
+<meta name="description" content="Mi mapamundi de viajes: un pincho en cada lugar donde estuve, con sus fotos">
+<meta name="theme-color" content="#E4ECEF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#081218" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mundi">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icono-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Figtree:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" integrity="sha512-vc58qvvBdrDR4etbxMdlTt4GBQk1qjvyORR2nrsPsFPyrs+/u5c3+1Ct6upOgdZoIl7eq6k3a1UPDSNAQi/32A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js" integrity="sha512-4UKI/XKm3xrvJ6pZS5oTRvIQGIzZFoXR71rRBb1y2N+PbwAsKa5tPl2J6WvbEvwN3TxQCm8hMzsl/pO+82iRlg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV" crossorigin="anonymous"></script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+
+<!-- Mientras arranca -->
+<section id="pantalla-carga" class="pantalla centrada" aria-live="polite">
+  <div class="logo grande"><svg viewBox="0 0 22 28" aria-hidden="true"><line x1="11" y1="27" x2="11" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="9" r="8" fill="var(--pin)"/><circle cx="8.5" cy="6.5" r="2.4" fill="#FFFFFF" opacity=".6"/></svg><span>Mundi</span></div>
+  <p class="suave" id="carga-texto">Cargando…</p>
+  <button class="boton-suave" id="carga-reintentar" type="button" hidden>Reintentar</button>
+</section>
+
+<!-- Entrar -->
+<section id="pantalla-entrar" class="pantalla centrada" hidden>
+  <form id="form-entrar" class="tarjeta entrar" novalidate>
+    <div class="logo grande"><svg viewBox="0 0 22 28" aria-hidden="true"><line x1="11" y1="27" x2="11" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="9" r="8" fill="var(--pin)"/><circle cx="8.5" cy="6.5" r="2.4" fill="#FFFFFF" opacity=".6"/></svg><span>Mundi</span></div>
+    <p class="suave">Tu mapamundi de viajes. Entra con tu cuenta.</p>
+    <div class="campo">
+      <label for="entrar-correo">Correo</label>
+      <input class="entrada" id="entrar-correo" type="email" autocomplete="username" inputmode="email" required>
+    </div>
+    <div class="campo">
+      <label for="entrar-clave">Contraseña</label>
+      <input class="entrada" id="entrar-clave" type="password" autocomplete="current-password" required>
+    </div>
+    <p class="error" id="entrar-error" role="alert" hidden></p>
+    <button class="boton-principal" id="entrar-boton" type="submit">Entrar</button>
+  </form>
+</section>
+
+<!-- Cuenta sin acceso a Mundi -->
+<section id="pantalla-sin-acceso" class="pantalla centrada" hidden>
+  <div class="tarjeta entrar">
+    <h1 class="titulo">Esta cuenta no tiene acceso</h1>
+    <p class="suave" id="sin-acceso-texto">Mundi es personal: solo entra quien está en su lista.</p>
+    <button class="boton-suave" id="sin-acceso-salir" type="button">Salir</button>
+  </div>
+</section>
+
+<!-- La app -->
+<div id="app" class="app" hidden>
+  <header class="cabecera">
+    <div class="logo"><svg viewBox="0 0 22 28" aria-hidden="true"><line x1="11" y1="27" x2="11" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="9" r="8" fill="var(--pin)"/><circle cx="8.5" cy="6.5" r="2.4" fill="#FFFFFF" opacity=".6"/></svg><span>Mundi</span></div>
+    <p class="cifras-chip" id="cifras" aria-live="polite"></p>
+    <button class="boton-icono" id="abrir-perfil" type="button" aria-label="Tus viajes y tu cuenta">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    </button>
+  </header>
+
+  <main class="zona-mapa">
+    <div id="mapa" class="mapa"></div>
+    <div class="sin-mapa" id="sin-mapa" hidden>
+      <p id="sin-mapa-texto"></p>
+      <button class="boton-suave" id="sin-mapa-reintentar" type="button">Reintentar</button>
+    </div>
+    <div class="aviso-elegir" id="aviso-elegir" hidden>
+      <span>Toca el lugar en el mapa</span>
+      <button type="button" id="cancelar-elegir">Cancelar</button>
+    </div>
+    <p class="vacio" id="vacio" hidden>Aún no hay pinchos. Pulsa <b>+</b> para clavar el primero.</p>
+    <div class="controles">
+      <button class="boton-icono" id="encuadrar" type="button" aria-label="Ver todos mis pinchos">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+      <button class="boton-anadir" id="abrir-nuevo" type="button" aria-label="Añadir un lugar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+  </main>
+
+  <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+  <div class="velo" id="velo" hidden></div>
+
+  <!-- Ficha de un lugar -->
+  <section class="hoja" id="hoja-lugar" role="dialog" aria-modal="true" aria-labelledby="lugar-titulo">
+    <div class="asa" aria-hidden="true"></div>
+    <button class="cerrar" type="button" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="contenido">
+      <div class="carrusel" id="lugar-fotos"></div>
+      <h2 class="lugar-titulo" id="lugar-titulo"></h2>
+      <div class="meta" id="lugar-meta"></div>
+      <p class="relato" id="lugar-relato"></p>
+      <div class="acciones">
+        <button class="boton-suave" id="lugar-editar" type="button">Editar</button>
+        <button class="boton-suave peligro" id="lugar-borrar" type="button">Borrar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Nuevo lugar / editar -->
+  <section class="hoja" id="hoja-form" role="dialog" aria-modal="true" aria-labelledby="form-titulo">
+    <div class="asa" aria-hidden="true"></div>
+    <button class="cerrar" type="button" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <form class="contenido form" id="form-lugar" novalidate>
+      <h2 class="titulo" id="form-titulo">Nuevo lugar</h2>
+
+      <div class="campo">
+        <span class="etiqueta-campo">Dónde</span>
+        <div class="elegido" id="donde-elegido" hidden>
+          <div><strong id="donde-nombre"></strong><span class="coords" id="donde-coords"></span></div>
+          <button class="boton-suave" type="button" id="donde-cambiar">Cambiar</button>
+        </div>
+        <div id="donde-buscar">
+          <div class="fila">
+            <input class="entrada" id="buscar-texto" type="search" placeholder="Ciudad, pueblo, sitio…" autocomplete="off" enterkeyhint="search">
+            <button class="boton-suave" type="button" id="buscar-boton">Buscar</button>
+          </div>
+          <div class="sugerencias" id="sugerencias" hidden></div>
+          <div class="fila">
+            <button class="boton-suave" type="button" id="elegir-en-mapa">Elegir en el mapa</button>
+            <button class="boton-suave" type="button" id="estoy-aqui">Estoy aquí</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="campo">
+        <label for="campo-nombre">Nombre</label>
+        <input class="entrada" id="campo-nombre" type="text" maxlength="80" required>
+      </div>
+
+      <div class="campo">
+        <label for="campo-fecha">Cuándo</label>
+        <input class="entrada" id="campo-fecha" type="month">
+      </div>
+
+      <div class="campo">
+        <span class="etiqueta-campo">Fotos</span>
+        <div class="fotos-form" id="fotos-form">
+          <label class="subir" id="subir">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Añadir fotos</span>
+            <input type="file" id="campo-fotos" accept="image/*" multiple>
+          </label>
+        </div>
+        <small class="suave">Se suben reducidas y sin la ubicación GPS de la cámara.</small>
+      </div>
+
+      <div class="campo">
+        <label for="campo-relato">Relato</label>
+        <textarea class="entrada" id="campo-relato" maxlength="4000" rows="4"></textarea>
+      </div>
+
+      <p class="error" id="form-error" role="alert" hidden></p>
+      <p class="suave" id="form-estado" aria-live="polite" hidden></p>
+      <button class="boton-principal" id="guardar" type="submit" disabled>Guardar</button>
+    </form>
+  </section>
+
+  <!-- Perfil -->
+  <section class="hoja" id="hoja-perfil" role="dialog" aria-modal="true" aria-labelledby="perfil-titulo">
+    <div class="asa" aria-hidden="true"></div>
+    <button class="cerrar" type="button" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="contenido">
+      <h2 class="titulo" id="perfil-titulo">Tus viajes</h2>
+      <p class="suave" id="perfil-correo"></p>
+      <div class="cifras" id="perfil-cifras"></div>
+      <div class="barra" aria-hidden="true"><i id="perfil-barra"></i></div>
+      <p class="suave" id="perfil-barra-texto"></p>
+      <h3 class="subtitulo">Países</h3>
+      <div class="lista" id="perfil-paises"></div>
+      <h3 class="subtitulo">Lugares</h3>
+      <div class="lista" id="perfil-lugares"></div>
+      <button class="boton-suave" id="salir" type="button">Salir</button>
+    </div>
+  </section>
+
+  <!-- Visor de fotos a pantalla completa -->
+  <div class="visor" id="visor" role="dialog" aria-modal="true" aria-label="Fotos" hidden>
+    <div class="visor-fotos" id="visor-fotos"></div>
+    <button class="cerrar" type="button" id="visor-cerrar" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+</div>
+
+</body>
+</html>

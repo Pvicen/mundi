@@ -96,6 +96,7 @@ Orden aprobado: BD → lote de Fotos, Cáscara PWA y Documentación → Mapa →
 | Cáscara PWA | lote | `sw.js`, `manifest.webmanifest` e `icons/` (dibujados con `setup/iconos.py`) | «Cáscara PWA» |
 | Documentación | lote | `README.md` y `_config.yml` (lo que no se publica en Pages) | — |
 | Mapa | crítica | `mapa.js`, su prueba `setup/pruebas/mapa.test.mjs` y la página `setup/pruebas/mapa.html` | «Mapa» |
+| Interfaz | crítica | `index.html`, `app.js`, `style.css`, `config.js` y los datos de ejemplo `setup/pruebas/datos-ejemplo.js` | «Interfaz» |
 
 **Lotes (C.C.D. §6):** son críticas toda migración o cambio de RLS o del almacén, el mapa y lo que toque la sesión o
 los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir en lote.
@@ -107,6 +108,9 @@ los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir 
 - **Lo que se guarda es privado:** cada pincho y cada foto, solo de su dueño. Hoy el único usuario es Vicente.
 - **El proyecto de Supabase es el de la App de avisos:** no tocar sus tablas, funciones, políticas ni almacenes. Lo de
   Mundi lleva siempre el prefijo `mundi`.
+- **Mundi comparte dominio con la App de avisos** (`pvicen.github.io`): la sesión va con su propia clave
+  (`mundi-sesion`), «Salir» cierra solo la de este dispositivo (`scope: "local"`) y `sw.js` solo toca cachés
+  `mundi-`. No cambiar nada de eso.
 - **No ejecutar SQL ni desplegar.** Lo hace Vicente desde el panel de Supabase: se le deja el archivo y los pasos. Toda
   migración va en `setup/migraciones/` y se puede ejecutar dos veces.
 - **Quitar el GPS (EXIF) de las fotos** antes de subirlas: toda foto pasa por `prepararFoto` de `fotos.js`.
@@ -137,12 +141,14 @@ Vista previa local: configuración `mundi` de `C:\Dev\.claude\launch.json` (puer
 Gate mínimo antes de commitear:
 
 ```powershell
-node --check fotos.js; node --check mapa.js; node --check sw.js; node --test
+node --check app.js; node --check config.js; node --check fotos.js; node --check mapa.js; node --check sw.js; node --test
 ```
 
 y abrir la vista previa sin errores en la consola. Lo que solo existe en el navegador (el lienzo de las fotos, el
-service worker, el dibujo y los toques del mapa) se prueba allí, con datos inventados: el mapa, en
-http://localhost:8126/setup/pruebas/mapa.html, a 375 px y en escritorio, en claro y en oscuro.
+service worker, el dibujo y los toques del mapa, la app entera) se prueba allí, con datos inventados, a 375 px y en
+escritorio, en claro y en oscuro: el mapa en http://localhost:8126/setup/pruebas/mapa.html y la app en
+http://localhost:8126/?ejemplo (sin Supabase; las opciones, en la cabecera de `setup/pruebas/datos-ejemplo.js`).
+Sin la cuenta de Vicente no se prueba contra Supabase: eso lo hace él.
 
 La demo es una sola página. Para verla en local hay que servirla envuelta en `<!doctype html>` con la meta viewport, a
 375 px y en escritorio, en claro y en oscuro, sin errores en la consola. Para actualizar la versión publicada, se

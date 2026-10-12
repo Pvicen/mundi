@@ -93,3 +93,23 @@ Necesita los globales `d3` (7.9.0) y `topojson` (3.0.2), cargados antes desde cd
 - **Colores:** toma las variables CSS de la página si existen (`--mar`, `--tierra`, `--tierra-borde`, `--visitado`,
   `--visitado-borde`, `--pin`, `--tinta`, `--tinta-2`, `--tinta-3`, `--sup`, `--grat`) y, si no, los de la demo. Sus
   clases empiezan por `mm-`, para no chocar con las de la Interfaz.
+
+## Interfaz — la app
+
+Ficheros: `index.html`, `app.js`, `style.css` y `config.js`. Usa los Contratos BD, Fotos, Mapa y Cáscara PWA.
+
+- **`config.js`** (módulo ES), solo lo público: `SUPABASE_URL` y `SUPABASE_CLAVE` (la clave publicable). Es el
+  proyecto de la App de avisos.
+- **Librerías**, con versión fijada y SRI: d3 7.9.0 y topojson 3.0.2 (cdnjs) y supabase-js 2.112.4 (jsdelivr).
+- **Sesión:** correo y contraseña de la cuenta de Supabase. Se guarda aparte de la de la App de avisos (clave
+  `mundi-sesion`), y «Salir» cierra solo la de este dispositivo.
+- **Buscar un lugar y nombrar un punto:** Nominatim de OpenStreetMap, sin cuenta. Solo se le envía el texto buscado
+  (al pulsar Buscar) o las coordenadas del punto elegido.
+- **Capa de datos:** todo lo que va a Supabase pasa por un objeto `datos` con esta forma (la de ejemplo la imita):
+  - `sesion()` → `{ id, correo }` o `null`; `entrar(correo, clave)` → `{ id, correo }` (lanza `Error`); `salir()`.
+  - `esPersona()` → boolean (la función `mundi_es_persona`).
+  - `listar()` → pinchos; `crear(fila)` → pincho; `actualizar(id, campos)` → pincho; `borrar(id)`.
+  - `subirFoto(ruta, blob)`; `urlsFirmadas(rutas)` → `{ [ruta]: url }`; `quitarFotos(rutas)`.
+- **Datos de ejemplo:** en `localhost` con `?ejemplo`, `datos` es `crearDatosEjemplo()` de
+  `setup/pruebas/datos-ejemplo.js`: pinchos inventados en memoria, sin Supabase. Fuera de `localhost`, `?ejemplo` no
+  hace nada.
