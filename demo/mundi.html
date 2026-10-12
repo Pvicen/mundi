@@ -1,0 +1,927 @@
+<title>Mundi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: el teléfono colgado en la pared junto a una nota; en el móvil, la app ocupa toda la pantalla */
+:root {
+  --pared: #E4ECEF;
+  --mar: #CCE0E9;
+  --tierra: #FAFBF8;
+  --tierra-borde: #A9BEC7;
+  --visitado: #F0B23E;
+  --visitado-borde: #B9821A;
+  --comunidad: #A6D3C2;
+  --pin: #E0352B;
+  --tinta: #0F2A3A;
+  --tinta-2: #4C6371;
+  --tinta-3: #7A8F9A;
+  --sup: #FFFFFF;
+  --sup-2: #F1F5F7;
+  --linea: #DAE3E8;
+  --grat: rgba(15, 42, 58, .09);
+  --bisel: #0E181E;
+  --sombra: 0 18px 44px rgba(15, 42, 58, .22);
+  --sombra-hoja: 0 -10px 30px rgba(15, 42, 58, .16);
+  --velo: rgba(15, 42, 58, .32);
+  --u1: #7A5AF5; --u2: #0B9A8A; --u3: #E8590C; --u4: #2F7DE1; --u5: #C2255C; --u6: #5C940D;
+  --f-titulo: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --f-texto: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-dato: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --pared: #081218; --mar: #0D2130; --tierra: #1B3141; --tierra-borde: #2D4A5D;
+    --visitado: #C98A24; --visitado-borde: #EAAA3C; --comunidad: #245849;
+    --pin: #FF5446; --tinta: #E6F0F4; --tinta-2: #A3B8C2; --tinta-3: #7690A0;
+    --sup: #112330; --sup-2: #16303E; --linea: #213F4F; --grat: rgba(230, 240, 244, .07);
+    --bisel: #000000; --sombra: 0 18px 44px rgba(0, 0, 0, .55); --sombra-hoja: 0 -10px 30px rgba(0, 0, 0, .5);
+    --velo: rgba(0, 0, 0, .5);
+    --u1: #9C85FF; --u2: #2CC7B3; --u3: #FF8A3D; --u4: #5EA2FF; --u5: #F0609A; --u6: #8CC63F;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --pared: #081218; --mar: #0D2130; --tierra: #1B3141; --tierra-borde: #2D4A5D;
+  --visitado: #C98A24; --visitado-borde: #EAAA3C; --comunidad: #245849;
+  --pin: #FF5446; --tinta: #E6F0F4; --tinta-2: #A3B8C2; --tinta-3: #7690A0;
+  --sup: #112330; --sup-2: #16303E; --linea: #213F4F; --grat: rgba(230, 240, 244, .07);
+  --bisel: #000000; --sombra: 0 18px 44px rgba(0, 0, 0, .55); --sombra-hoja: 0 -10px 30px rgba(0, 0, 0, .5);
+  --velo: rgba(0, 0, 0, .5);
+  --u1: #9C85FF; --u2: #2CC7B3; --u3: #FF8A3D; --u4: #5EA2FF; --u5: #F0609A; --u6: #8CC63F;
+  color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+html { box-sizing: border-box; height: 100%; }
+*, *::before, *::after { box-sizing: inherit; }
+body { height: 100%; margin: 0; background: var(--pared); color: var(--tinta); font-family: var(--f-texto); font-size: 15px; line-height: 1.45; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--pin); outline-offset: 2px; }
+
+.escena { height: 100%; display: grid; grid-template-columns: minmax(0, 330px) auto; justify-content: center; align-items: center; gap: 56px; padding-block: 16px; padding-inline: 16px; }
+
+/* La nota de la pared (solo en pantallas grandes) */
+.nota { display: grid; gap: 18px; }
+.nota .marca-app { display: flex; align-items: center; gap: 10px; }
+.nota h1 { margin: 0; font-family: var(--f-titulo); font-weight: 800; font-size: 44px; letter-spacing: -.02em; line-height: 1; }
+.nota .lema { margin: 0; font-size: 18px; color: var(--tinta-2); text-wrap: balance; }
+.nota ol { margin: 0; padding-left: 22px; display: grid; gap: 8px; color: var(--tinta); }
+.nota ol li::marker { font-family: var(--f-dato); color: var(--pin); }
+.nota .pie { margin: 0; font-size: 13px; color: var(--tinta-3); border-top: 1px dashed var(--tierra-borde); padding-top: 12px; }
+.etiqueta { font-family: var(--f-dato); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--tinta-3); }
+
+/* El teléfono */
+.telefono { position: relative; width: 390px; height: min(844px, calc(100dvh - 32px)); border: 11px solid var(--bisel); border-radius: 48px; background: var(--sup); overflow: hidden; box-shadow: var(--sombra); display: flex; flex-direction: column; }
+.barra-estado { display: flex; justify-content: space-between; align-items: center; padding: 10px 26px 2px; font-family: var(--f-dato); font-size: 12px; color: var(--tinta); }
+.barra-estado .isla { width: 96px; height: 24px; border-radius: 14px; background: var(--bisel); }
+
+.cabecera { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 16px 10px; background: var(--sup); border-bottom: 1px solid var(--linea); position: relative; z-index: 3; }
+.logo { display: flex; align-items: center; gap: 8px; font-family: var(--f-titulo); font-weight: 800; font-size: 24px; letter-spacing: -.02em; }
+.logo svg { width: 22px; height: 28px; flex: none; }
+.segmentos { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--sup-2); border: 1px solid var(--linea); }
+.segmentos button { border: 0; background: none; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--tinta-2); }
+.segmentos button[aria-pressed="true"] { background: var(--tinta); color: var(--sup); }
+
+.vistas { position: relative; flex: 1; min-height: 0; }
+.vista { position: absolute; inset: 0; }
+.vista.desplazable { overflow-y: auto; padding: 16px 16px 24px; display: grid; align-content: start; gap: 16px; }
+
+/* El mapa */
+#vista-mapa { background: var(--mar); }
+#mapa { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+.oceano { fill: var(--mar); }
+.graticula { fill: none; stroke: var(--grat); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.ecuador { fill: none; stroke: var(--tierra-borde); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.pais { fill: var(--tierra); stroke: var(--tierra-borde); stroke-width: .7; vector-effect: non-scaling-stroke; transition: fill .4s; }
+.pais.visitado { fill: var(--visitado); stroke: var(--visitado-borde); }
+.pais.comunidad { fill: var(--comunidad); }
+.rotulo-ecuador { font-family: var(--f-dato); font-size: 9px; letter-spacing: .1em; fill: var(--tinta-3); }
+
+.marca { cursor: pointer; }
+.marca .sombra { fill: var(--tinta); opacity: .22; }
+.marca .aguja { stroke: var(--tinta-2); stroke-width: 1.6; stroke-linecap: round; }
+.marca .cabeza { stroke: var(--sup); stroke-width: 1.2; }
+.marca .brillo { fill: #FFFFFF; opacity: .55; }
+.marca .toque { fill: transparent; }
+.marca:focus { outline: none; }
+.marca:focus-visible .cabeza { stroke: var(--tinta); stroke-width: 2.5; }
+.marca.nuevo .cuerpo { animation: clavar .7s cubic-bezier(.3, 1.4, .5, 1) both; }
+@keyframes clavar { from { transform: translateY(-46px) scale(1.25); opacity: 0; } 60% { opacity: 1; } to { transform: none; opacity: 1; } }
+.grupo-fondo { stroke: var(--sup); stroke-width: 2.5; }
+.grupo-num { font-family: var(--f-dato); font-size: 12px; fill: #FFFFFF; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.fantasma .cabeza { fill: var(--tinta-3); }
+
+.u-tu { --c: var(--pin); } .u1 { --c: var(--u1); } .u2 { --c: var(--u2); } .u3 { --c: var(--u3); } .u4 { --c: var(--u4); } .u5 { --c: var(--u5); } .u6 { --c: var(--u6); } .u-mix { --c: var(--tinta); }
+.marca .cabeza, .grupo-fondo { fill: var(--c); }
+
+.chip-mapa { position: absolute; top: 12px; left: 12px; right: 64px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+.chip-mapa span { background: var(--sup); border: 1px solid var(--linea); border-radius: 999px; padding: 5px 10px; font-size: 12.5px; font-weight: 600; box-shadow: 0 2px 8px var(--grat); }
+.chip-mapa b { font-family: var(--f-dato); font-weight: 500; color: var(--pin); }
+.controles { position: absolute; right: 12px; bottom: 16px; display: grid; gap: 8px; }
+.controles button { width: 42px; height: 42px; border-radius: 14px; border: 1px solid var(--linea); background: var(--sup); display: grid; place-items: center; box-shadow: 0 2px 10px var(--grat); }
+.controles svg { width: 20px; height: 20px; stroke: var(--tinta); fill: none; stroke-width: 2; stroke-linecap: round; }
+.aviso-elegir { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px 10px 14px; background: var(--tinta); color: var(--sup); border-radius: 16px; font-weight: 600; font-size: 14px; z-index: 2; }
+.aviso-elegir button { border: 0; border-radius: 10px; padding: 6px 10px; background: var(--sup); color: var(--tinta); font-weight: 600; font-size: 13px; }
+.sin-mapa { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--tinta-2); }
+
+/* Pestañas */
+.pestanas { display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--sup); border-top: 1px solid var(--linea); position: relative; z-index: 3; }
+.pestanas button { border: 0; background: none; display: grid; justify-items: center; gap: 2px; padding: 6px 0; font-size: 11.5px; font-weight: 600; color: var(--tinta-3); }
+.pestanas button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.pestanas button[aria-current="page"] { color: var(--tinta); }
+.pestanas .boton-anadir { justify-self: center; width: 54px; height: 54px; border-radius: 18px; background: var(--pin); color: #FFFFFF; place-items: center; padding: 0; box-shadow: 0 6px 16px var(--grat); margin-top: -14px; }
+.pestanas .boton-anadir svg { width: 26px; height: 26px; stroke-width: 2.4; }
+.home-indicador { height: 5px; width: 120px; border-radius: 3px; background: var(--tinta); opacity: .8; margin: 0 auto 7px; }
+
+/* Fotos y tarjetas */
+.foto { position: relative; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 14px; overflow: hidden; background: var(--sup-2); }
+.foto svg, .foto img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.foto.sin-fotos { display: grid; place-items: center; color: var(--tinta-3); font-size: 13.5px; border: 1.5px dashed var(--tierra-borde); }
+.tarjeta { background: var(--sup); border: 1px solid var(--linea); border-radius: 20px; padding: 12px; display: grid; gap: 10px; }
+.fila-autor { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fila-autor .quien { min-width: 0; display: grid; }
+.fila-autor .quien strong { font-size: 14px; }
+.fila-autor .quien span { font-size: 12.5px; color: var(--tinta-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.avatar { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--c); color: #FFFFFF; font-family: var(--f-titulo); font-weight: 800; font-size: 15px; }
+.avatar.grande { width: 64px; height: 64px; font-size: 28px; }
+.relato { margin: 0; font-size: 14.5px; }
+.acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.boton-suave { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--linea); background: var(--sup-2); border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 600; }
+.boton-suave svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.boton-suave[aria-pressed="true"] { color: var(--pin); border-color: var(--pin); }
+.boton-suave[aria-pressed="true"] .corazon { fill: currentColor; }
+.num { font-family: var(--f-dato); font-weight: 500; font-variant-numeric: tabular-nums; }
+.titulo-seccion { margin: 4px 0 0; font-family: var(--f-titulo); font-weight: 800; font-size: 22px; letter-spacing: -.01em; }
+.subtitulo { margin: -10px 0 0; color: var(--tinta-2); font-size: 13.5px; }
+
+/* Hojas que suben desde abajo */
+.velo { position: absolute; inset: 0; background: var(--velo); z-index: 4; }
+.hoja { position: absolute; left: 0; right: 0; bottom: 0; max-height: 82%; display: flex; flex-direction: column; background: var(--sup); border-radius: 24px 24px 0 0; box-shadow: var(--sombra-hoja); transform: translateY(105%); transition: transform .32s cubic-bezier(.2, .8, .2, 1); z-index: 5; visibility: hidden; }
+.hoja.abierta { transform: none; visibility: visible; }
+.hoja .asa { width: 40px; height: 5px; border-radius: 3px; background: var(--linea); margin: 8px auto 2px; flex: none; }
+.hoja .cerrar { position: absolute; top: 10px; right: 12px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: var(--sup-2); display: grid; place-items: center; z-index: 1; }
+.hoja .cerrar svg { width: 16px; height: 16px; stroke: var(--tinta); stroke-width: 2.4; stroke-linecap: round; }
+.hoja .contenido { overflow-y: auto; padding: 8px 16px calc(20px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 12px; }
+
+.carrusel { display: grid; grid-auto-flow: column; grid-auto-columns: 100%; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; border-radius: 16px; scrollbar-width: none; }
+.carrusel::-webkit-scrollbar { display: none; }
+.carrusel .foto { scroll-snap-align: start; border-radius: 16px; }
+.puntos { display: flex; justify-content: center; gap: 5px; margin-top: -4px; }
+.puntos i { width: 6px; height: 6px; border-radius: 50%; background: var(--linea); }
+.puntos i.activo { background: var(--tinta); }
+.lugar-titulo { margin: 0; font-family: var(--f-titulo); font-weight: 800; font-size: 26px; letter-spacing: -.02em; line-height: 1.05; text-wrap: balance; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--tinta-2); }
+.iso { font-family: var(--f-dato); font-size: 11px; letter-spacing: .08em; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--tierra-borde); color: var(--tinta); }
+.coords { font-family: var(--f-dato); font-size: 12px; color: var(--tinta-3); }
+
+/* Formulario para añadir */
+.form { display: grid; gap: 14px; }
+.campo { display: grid; gap: 6px; }
+.campo > label, .campo > .etiqueta-campo { font-size: 13px; font-weight: 700; }
+.entrada { width: 100%; border: 1px solid var(--linea); background: var(--sup-2); border-radius: 12px; padding: 10px 12px; }
+textarea.entrada { resize: none; min-height: 70px; }
+.fila-donde { display: flex; gap: 8px; }
+.fila-donde .entrada { flex: 1; min-width: 0; }
+.boton-mapa { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--tinta); background: var(--sup); border-radius: 12px; padding: 0 12px; font-weight: 600; font-size: 13px; }
+.boton-mapa svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+.sugerencias { display: grid; border: 1px solid var(--linea); border-radius: 12px; overflow: hidden; }
+.sugerencias button { border: 0; border-top: 1px solid var(--linea); background: var(--sup); text-align: left; padding: 9px 12px; display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.sugerencias button:first-child { border-top: 0; }
+.elegido { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--sup-2); border: 1px dashed var(--tierra-borde); font-size: 13.5px; }
+.elegido strong { display: block; font-size: 14.5px; }
+.fotos-subidas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.fotos-subidas .foto { border-radius: 10px; aspect-ratio: 1; }
+.subir { aspect-ratio: 1; border: 1.5px dashed var(--tierra-borde); border-radius: 10px; display: grid; place-items: center; text-align: center; font-size: 11.5px; font-weight: 600; color: var(--tinta-2); cursor: pointer; padding: 4px; }
+.subir svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.subir input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.subir:focus-within { outline: 2px solid var(--pin); outline-offset: 2px; }
+.opciones { display: flex; gap: 6px; flex-wrap: wrap; }
+.opciones label { position: relative; }
+.opciones input { position: absolute; opacity: 0; }
+.opciones span { display: inline-block; border: 1px solid var(--linea); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; background: var(--sup-2); cursor: pointer; }
+.opciones input:checked + span { background: var(--tinta); color: var(--sup); border-color: var(--tinta); }
+.opciones input:focus-visible + span { outline: 2px solid var(--pin); outline-offset: 2px; }
+.casilla { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
+.casilla input { margin-top: 3px; accent-color: var(--pin); }
+.casilla small { display: block; color: var(--tinta-2); }
+.boton-principal { border: 0; border-radius: 14px; padding: 13px; background: var(--pin); color: #FFFFFF; font-weight: 700; font-size: 15px; }
+.boton-principal:disabled { opacity: .45; cursor: not-allowed; }
+.error { margin: 0; color: var(--pin); font-size: 13px; font-weight: 600; }
+
+/* Perfil */
+.perfil-cabeza { display: flex; align-items: center; gap: 14px; }
+.perfil-cabeza h2 { margin: 0; font-family: var(--f-titulo); font-weight: 800; font-size: 24px; }
+.perfil-cabeza p { margin: 0; color: var(--tinta-2); font-size: 13.5px; }
+.cifras { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cifras div { background: var(--sup-2); border-radius: 14px; padding: 10px; display: grid; gap: 2px; }
+.cifras strong { font-family: var(--f-titulo); font-weight: 800; font-size: 26px; line-height: 1; }
+.cifras span { font-size: 12px; color: var(--tinta-2); }
+.barra { height: 10px; border-radius: 6px; background: var(--sup-2); overflow: hidden; border: 1px solid var(--linea); }
+.barra i { display: block; height: 100%; background: var(--visitado); border-radius: 6px; }
+.lista-paises { display: grid; gap: 0; }
+.lista-paises div { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--linea); font-size: 14px; }
+.lista-paises div:first-child { border-top: 0; }
+.poster { background: var(--tinta); color: var(--sup); border: 0; }
+.poster p { margin: 0; color: inherit; opacity: .85; font-size: 13.5px; }
+.poster h3 { margin: 0; font-family: var(--f-titulo); font-weight: 800; font-size: 19px; }
+.poster .etiqueta { color: var(--visitado); }
+.demo-nota p { margin: 0; font-size: 13.5px; color: var(--tinta-2); }
+.demo-nota h3 { margin: 0; font-size: 15px; }
+
+.aviso { position: absolute; left: 16px; right: 16px; bottom: 88px; padding: 11px 14px; border-radius: 14px; background: var(--tinta); color: var(--sup); font-weight: 600; font-size: 14px; text-align: center; z-index: 6; transform: translateY(12px); opacity: 0; transition: .25s; pointer-events: none; }
+.aviso.visible { transform: none; opacity: 1; }
+
+@media (max-width: 760px) {
+  .escena { display: block; padding: 0; }
+  .nota { display: none; }
+  .telefono { width: 100%; height: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  .barra-estado, .home-indicador { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hoja, .pais, .aviso { transition: none; }
+  .marca.nuevo .cuerpo { animation: none; }
+}
+</style>
+
+<div class="escena">
+  <aside class="nota" aria-label="Sobre la demo">
+    <div class="marca-app">
+      <svg width="30" height="38" viewBox="0 0 22 28" aria-hidden="true"><line x1="11" y1="27" x2="11" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="9" r="8" fill="var(--pin)"/><circle cx="8.5" cy="6.5" r="2.4" fill="#FFFFFF" opacity=".6"/></svg>
+      <h1>Mundi</h1>
+    </div>
+    <p class="lema">El mapa de pared con pinchos, pero en el teléfono: un pincho por cada lugar que visitaste, con tus fotos, y los mapas de otros viajeros para inspirarte.</p>
+    <span class="etiqueta">Prueba la demo</span>
+    <ol>
+      <li>Toca un pincho rojo para ver sus fotos.</li>
+      <li>Pellizca o usa + y − para acercarte; los grupos de pinchos se separan.</li>
+      <li>Cambia a «Comunidad» para ver los viajes de otros.</li>
+      <li>Pulsa el + rojo, elige el lugar en el mapa y sube una foto tuya.</li>
+      <li>Mira en «Perfil» cuántos países llevas.</li>
+    </ol>
+    <p class="pie">Demo: los viajeros y sus fotos son inventados. Lo que añadas se queda en tu navegador hasta que recargues y no se envía a nadie.</p>
+  </aside>
+
+  <div class="telefono" id="app">
+    <div class="barra-estado" aria-hidden="true"><span>9:41</span><span class="isla"></span><span>5G ▮▮▮</span></div>
+
+    <header class="cabecera">
+      <div class="logo">
+        <svg viewBox="0 0 22 28" aria-hidden="true"><line x1="11" y1="27" x2="11" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="9" r="8" fill="var(--pin)"/><circle cx="8.5" cy="6.5" r="2.4" fill="#FFFFFF" opacity=".6"/></svg>
+        <span>Mundi</span>
+      </div>
+      <div class="segmentos" id="segmentos" role="group" aria-label="Qué pinchos ver">
+        <button type="button" id="ver-mio" aria-pressed="true">Mis viajes</button>
+        <button type="button" id="ver-comunidad" aria-pressed="false">Comunidad</button>
+      </div>
+    </header>
+
+    <main class="vistas">
+      <section class="vista" id="vista-mapa" aria-label="Mapa">
+        <svg id="mapa" role="img" aria-label="Mapamundi con pinchos"></svg>
+        <div class="chip-mapa" id="chip-mapa"></div>
+        <div class="aviso-elegir" id="aviso-elegir" hidden>
+          <span>Toca el mapa donde quieres el pincho</span>
+          <button type="button" id="cancelar-elegir">Cancelar</button>
+        </div>
+        <div class="controles">
+          <button type="button" id="acercar" aria-label="Acercar"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button type="button" id="alejar" aria-label="Alejar"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+          <button type="button" id="encuadrar" aria-label="Ver todos mis pinchos"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        </div>
+      </section>
+
+      <section class="vista desplazable" id="vista-explorar" aria-label="Explorar" hidden>
+        <h2 class="titulo-seccion">Explorar</h2>
+        <p class="subtitulo">Lo último que han clavado los viajeros que sigues.</p>
+        <div id="lista-explorar" style="display:grid;gap:16px"></div>
+      </section>
+
+      <section class="vista desplazable" id="vista-perfil" aria-label="Perfil" hidden></section>
+    </main>
+
+    <nav class="pestanas" aria-label="Secciones">
+      <button type="button" data-vista="mapa" aria-current="page">
+        <svg viewBox="0 0 24 24"><path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4Z"/><path d="M9 4v13M15 6.5v13"/></svg>Mapa
+      </button>
+      <button type="button" data-vista="explorar">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/></svg>Explorar
+      </button>
+      <button type="button" class="boton-anadir" id="boton-anadir" aria-label="Añadir un lugar">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button type="button" data-vista="perfil">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Perfil
+      </button>
+    </nav>
+    <div class="home-indicador" aria-hidden="true"></div>
+
+    <div class="velo" id="velo" hidden></div>
+
+    <section class="hoja" id="hoja-lugar" role="dialog" aria-modal="true" aria-label="Lugar" aria-hidden="true">
+      <div class="asa"></div>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <div class="contenido" id="contenido-lugar"></div>
+    </section>
+
+    <section class="hoja" id="hoja-nuevo" role="dialog" aria-modal="true" aria-label="Nuevo pincho" aria-hidden="true">
+      <div class="asa"></div>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <div class="contenido">
+        <h2 class="titulo-seccion" style="margin:0">Nuevo pincho</h2>
+        <form class="form" id="form-nuevo" novalidate>
+          <div class="campo">
+            <label for="buscar-lugar">¿Dónde estuviste?</label>
+            <div class="fila-donde">
+              <input class="entrada" id="buscar-lugar" type="search" autocomplete="off" placeholder="Busca una ciudad">
+              <button type="button" class="boton-mapa" id="elegir-en-mapa"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Mapa</button>
+            </div>
+            <div class="sugerencias" id="sugerencias" hidden></div>
+            <div class="elegido" id="elegido" hidden></div>
+          </div>
+          <div class="campo">
+            <label for="nombre-lugar">Nombre del lugar</label>
+            <input class="entrada" id="nombre-lugar" type="text" maxlength="60" placeholder="Por ejemplo: Mirador del cerro Alegre">
+          </div>
+          <div class="campo">
+            <label for="fecha-lugar">¿Cuándo?</label>
+            <input class="entrada" id="fecha-lugar" type="month">
+          </div>
+          <div class="campo">
+            <span class="etiqueta-campo">Fotos</span>
+            <div class="fotos-subidas" id="fotos-subidas">
+              <label class="subir" for="entrada-fotos"><span><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><br>Añadir fotos</span><input id="entrada-fotos" type="file" accept="image/*" multiple></label>
+            </div>
+          </div>
+          <div class="campo">
+            <label for="texto-lugar">Cuéntalo</label>
+            <textarea class="entrada" id="texto-lugar" maxlength="280" placeholder="Qué viste, qué comiste, qué recomiendas…"></textarea>
+          </div>
+          <div class="campo">
+            <span class="etiqueta-campo">Quién lo ve</span>
+            <div class="opciones" role="radiogroup" aria-label="Quién lo ve">
+              <label><input type="radio" name="privacidad" id="priv-todos" value="todos" checked><span>Todos</span></label>
+              <label><input type="radio" name="privacidad" id="priv-amigos" value="amigos"><span>Amigos</span></label>
+              <label><input type="radio" name="privacidad" id="priv-yo" value="yo"><span>Solo yo</span></label>
+            </div>
+          </div>
+          <label class="casilla"><input type="checkbox" id="ubicacion-aprox" checked><span>Ubicación aproximada<small>Los demás ven la ciudad, no el punto exacto.</small></span></label>
+          <p class="error" id="error-nuevo" hidden></p>
+          <button type="submit" class="boton-principal" id="poner-pincho" disabled>Clavar el pincho</button>
+        </form>
+      </div>
+    </section>
+
+    <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/datamaps/0.5.9/datamaps.world.min.js"></script>
+<script>
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, clase, texto) => { const e = document.createElement(tag); if (clase) e.className = clase; if (texto != null) e.textContent = texto; return e; };
+  const RADIO_TIERRA = 6371;
+  const reducirMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- Datos de ejemplo ---------- */
+  const NOMBRES = {
+    CHL: "Chile", ESP: "España", PRT: "Portugal", FRA: "Francia", JPN: "Japón", PER: "Perú", ISL: "Islandia",
+    USA: "Estados Unidos", MAR: "Marruecos", GRC: "Grecia", IDN: "Indonesia", ZAF: "Sudáfrica", ARG: "Argentina",
+    COL: "Colombia", AUS: "Australia", TUR: "Turquía", ITA: "Italia", GBR: "Reino Unido", DEU: "Alemania",
+    NLD: "Países Bajos", CZE: "Chequia", AUT: "Austria", MEX: "México", CUB: "Cuba", BRA: "Brasil", URY: "Uruguay",
+    BOL: "Bolivia", ECU: "Ecuador", THA: "Tailandia", ARE: "Emiratos Árabes Unidos", EGY: "Egipto", CAN: "Canadá",
+    CHN: "China", IND: "India", RUS: "Rusia", NZL: "Nueva Zelanda", NOR: "Noruega", SWE: "Suecia", FIN: "Finlandia",
+    DNK: "Dinamarca", IRL: "Irlanda", CHE: "Suiza", BEL: "Bélgica", POL: "Polonia", HRV: "Croacia", KOR: "Corea del Sur",
+    VNM: "Vietnam", PHL: "Filipinas", MYS: "Malasia", KEN: "Kenia", TZA: "Tanzania", VEN: "Venezuela", PRY: "Paraguay",
+    CRI: "Costa Rica", PAN: "Panamá", GTM: "Guatemala", DOM: "República Dominicana", ISR: "Israel", JOR: "Jordania",
+    SAU: "Arabia Saudí", IRN: "Irán", NPL: "Nepal", LKA: "Sri Lanka", KHM: "Camboya", MNG: "Mongolia", UKR: "Ucrania",
+    ROU: "Rumanía", HUN: "Hungría", GRL: "Groenlandia", MDG: "Madagascar", ETH: "Etiopía", TUN: "Túnez", NAM: "Namibia"
+  };
+  const PERSONAS = {
+    tu: { nombre: "Tú", clase: "u-tu", inicial: "T" },
+    camila: { nombre: "Camila Rojas", clase: "u1", inicial: "C" },
+    diego: { nombre: "Diego Fuentes", clase: "u2", inicial: "D" },
+    sofia: { nombre: "Sofía Méndez", clase: "u3", inicial: "S" },
+    mateo: { nombre: "Mateo Silva", clase: "u4", inicial: "M" },
+    lucia: { nombre: "Lucía Pardo", clase: "u5", inicial: "L" },
+    tomas: { nombre: "Tomás Vera", clase: "u6", inicial: "T" }
+  };
+  let siguienteId = 1;
+  const A = (escena, semilla, hora, hito) => ({ tipo: "arte", escena, semilla, hora: hora || "dia", hito });
+  const lugar = (autor, nombre, iso, lat, lon, fecha, texto, fotos, megusta) =>
+    ({ id: "p" + siguienteId++, autor, nombre, iso, lat, lon, fecha, texto, fotos, megusta: megusta || 0, meGusta: false, quieroIr: false, privacidad: "todos" });
+
+  const PINES = [
+    lugar("tu", "Santiago", "CHL", -33.4489, -70.6693, "2023-07", "Casa. El cerro San Cristóbal con la cordillera nevada detrás después de la lluvia.", [A("ciudad", 3, "dia"), A("montana", 8, "tarde")], 14),
+    lugar("tu", "Valparaíso", "CHL", -33.0472, -71.6127, "2023-12", "Subimos en el ascensor Reina Victoria y bajamos caminando entre murales.", [A("costa", 5, "tarde"), A("costa", 11, "dia")], 22),
+    lugar("tu", "Torres del Paine", "CHL", -50.9423, -73.4068, "2024-02", "Salimos a las 4 de la mañana para ver las Torres con la primera luz. Valió cada paso.", [A("montana", 2, "tarde"), A("montana", 15, "dia"), A("montana", 21, "dia")], 41),
+    lugar("tu", "San Pedro de Atacama", "CHL", -22.9087, -68.1997, "2024-04", "Valle de la Luna al atardecer y un cielo con más estrellas de las que había visto nunca.", [A("desierto", 4, "tarde"), A("aurora", 9, "noche")], 33),
+    lugar("tu", "Murcia", "ESP", 37.9922, -1.1307, "2025-09", "Mi ciudad en España. La catedral y un paparajote en la plaza Belluga.", [A("ciudad", 12, "tarde")], 9),
+    lugar("tu", "Valencia", "ESP", 39.4699, -0.3763, "2025-10", "Paella en la Malvarrosa y vuelta en bici por el Turia.", [A("costa", 7, "dia")], 17),
+    lugar("tu", "Madrid", "ESP", 40.4168, -3.7038, "2025-11", "Atardecer en el Templo de Debod.", [A("ciudad", 18, "tarde")], 11),
+    lugar("tu", "Lisboa", "PRT", 38.7223, -9.1393, "2026-02", "El tranvía 28 lleno hasta arriba y pastéis de nata recién hechos.", [A("costa", 16, "tarde"), A("ciudad", 6, "noche")], 26),
+    lugar("tu", "París", "FRA", 48.8566, 2.3522, "2026-04", "La torre iluminada a la hora en punto. Primera vez en Francia.", [A("ciudad", 10, "noche", "torre"), A("ciudad", 23, "dia", "torre")], 38),
+
+    lugar("camila", "Kioto", "JPN", 35.0116, 135.7681, "2026-09", "Fushimi Inari a las 6 de la mañana: miles de torii y nadie más.", [A("torii", 3, "dia"), A("torii", 7, "tarde")], 214),
+    lugar("camila", "Machu Picchu", "PER", -13.1631, -72.545, "2026-06", "Llegamos por el Camino Inca. La niebla se abrió justo al cruzar la Puerta del Sol.", [A("ruinas", 5, "dia")], 187),
+    lugar("diego", "Reikiavik", "ISL", 64.1466, -21.9426, "2026-03", "Auroras desde la carretera, a 20 minutos de la ciudad. Lleva trípode.", [A("aurora", 2, "noche"), A("aurora", 14, "noche")], 302),
+    lugar("diego", "Nueva York", "USA", 40.7128, -74.006, "2025-12", "Manhattan nevado desde el puente de Brooklyn.", [A("ciudad", 31, "noche")], 96),
+    lugar("sofia", "Marrakech", "MAR", 31.6295, -7.9811, "2026-05", "Noche en el desierto de Agafay, a una hora de la medina.", [A("desierto", 8, "tarde")], 143),
+    lugar("sofia", "Santorini", "GRC", 36.3932, 25.4615, "2025-08", "Oia al atardecer, con medio mundo mirando lo mismo.", [A("costa", 22, "tarde")], 251),
+    lugar("mateo", "Ubud", "IDN", -8.5069, 115.2625, "2026-07", "Arrozales de Tegallalang antes de que llegara el calor.", [A("arrozal", 4, "dia")], 129),
+    lugar("mateo", "Ciudad del Cabo", "ZAF", -33.9249, 18.4241, "2026-01", "Subida a la Table Mountain y bajada en teleférico.", [A("montana", 33, "dia")], 88),
+    lugar("lucia", "Buenos Aires", "ARG", -34.6037, -58.3816, "2026-08", "Caminito, choripán y un tango improvisado en la calle.", [A("ciudad", 41, "tarde")], 64),
+    lugar("lucia", "Cartagena de Indias", "COL", 10.391, -75.4794, "2026-02", "Las murallas al atardecer y una limonada de coco.", [A("costa", 29, "tarde")], 117),
+    lugar("tomas", "Sídney", "AUS", -33.8688, 151.2093, "2025-11", "La Ópera desde el ferry a Manly.", [A("costa", 35, "dia")], 158),
+    lugar("tomas", "Estambul", "TUR", 41.0082, 28.9784, "2026-05", "Llamada a la oración sobre el Bósforo.", [A("ciudad", 52, "tarde")], 101)
+  ];
+  const CIUDADES = [
+    ["Roma", "ITA", 41.9028, 12.4964], ["Londres", "GBR", 51.5072, -0.1276], ["Berlín", "DEU", 52.52, 13.405],
+    ["Ámsterdam", "NLD", 52.3676, 4.9041], ["Praga", "CZE", 50.0755, 14.4378], ["Barcelona", "ESP", 41.3874, 2.1686],
+    ["Sevilla", "ESP", 37.3891, -5.9845], ["Granada", "ESP", 37.1773, -3.5986], ["Oporto", "PRT", 41.1579, -8.6291],
+    ["Mendoza", "ARG", -32.8895, -68.8458], ["Bariloche", "ARG", -41.1335, -71.3103], ["Lima", "PER", -12.0464, -77.0428],
+    ["Cusco", "PER", -13.532, -71.9675], ["Bogotá", "COL", 4.711, -74.0721], ["Ciudad de México", "MEX", 19.4326, -99.1332],
+    ["Cancún", "MEX", 21.1619, -86.8515], ["La Habana", "CUB", 23.1136, -82.3666], ["Río de Janeiro", "BRA", -22.9068, -43.1729],
+    ["Montevideo", "URY", -34.9011, -56.1645], ["La Paz", "BOL", -16.4897, -68.1193], ["Quito", "ECU", -0.1807, -78.4678],
+    ["Isla de Pascua", "CHL", -27.1127, -109.3497], ["Puerto Varas", "CHL", -41.3195, -72.9854], ["La Serena", "CHL", -29.9027, -71.2519],
+    ["Pucón", "CHL", -39.2724, -71.9779], ["Tokio", "JPN", 35.6762, 139.6503], ["Bangkok", "THA", 13.7563, 100.5018],
+    ["Dubái", "ARE", 25.2048, 55.2708], ["El Cairo", "EGY", 30.0444, 31.2357], ["Nueva York", "USA", 40.7128, -74.006]
+  ];
+
+  /* ---------- Fotos de ejemplo dibujadas (postales) ---------- */
+  function azar(semilla) { let s = (semilla * 9301 + 49297) % 233280; return () => (s = (s * 9301 + 49297) % 233280) / 233280; }
+  const CIELOS = { dia: ["#86C5EE", "#E4F2F9"], tarde: ["#F49A6C", "#FBD9A3"], noche: ["#0A1B36", "#24426B"] };
+  let idGradiente = 0;
+  function postal(f) {
+    const r = azar(f.semilla);
+    const [c1, c2] = CIELOS[f.hora] || CIELOS.dia;
+    const g = "cielo" + idGradiente++;
+    const noche = f.hora === "noche", tarde = f.hora === "tarde";
+    let s = `<svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><rect width="400" height="300" fill="url(#${g})"/>`;
+    if (noche) {
+      for (let i = 0; i < 40; i++) s += `<circle cx="${(r() * 400).toFixed(0)}" cy="${(r() * 170).toFixed(0)}" r="${(r() * 1.3 + .3).toFixed(1)}" fill="#FFFFFF" opacity="${(r() * .6 + .3).toFixed(2)}"/>`;
+      s += `<circle cx="${(300 + r() * 60).toFixed(0)}" cy="52" r="14" fill="#F4F1DE"/>`;
+    } else {
+      s += `<circle cx="${(70 + r() * 260).toFixed(0)}" cy="${(60 + r() * 40).toFixed(0)}" r="${tarde ? 30 : 21}" fill="${tarde ? "#FFE19A" : "#FFF7D6"}" opacity=".95"/>`;
+    }
+    switch (f.escena) {
+      case "ciudad": {
+        const lejos = noche ? "#203556" : tarde ? "#C28A8C" : "#9CB3C7", cerca = noche ? "#121F35" : tarde ? "#6A4659" : "#4E6378", ventana = noche || tarde ? "#FFD46B" : "#DDE9F1";
+        let x = -6; while (x < 410) { const w = 22 + r() * 34, h = 60 + r() * 120; s += `<rect x="${x.toFixed(0)}" y="${(225 - h).toFixed(0)}" width="${w.toFixed(0)}" height="${(h + 80).toFixed(0)}" fill="${lejos}"/>`; x += w + 3; }
+        x = -10; while (x < 410) {
+          const w = 30 + r() * 42, h = (f.hito === "torre" && x > 120 && x < 260 ? 20 + r() * 25 : 40 + r() * 95), y = 250 - h;
+          s += `<rect x="${x.toFixed(0)}" y="${y.toFixed(0)}" width="${w.toFixed(0)}" height="${(h + 60).toFixed(0)}" fill="${cerca}"/>`;
+          for (let fy = y + 10; fy < 245; fy += 14) for (let fx = x + 6; fx < x + w - 8; fx += 11) if (r() > .5) s += `<rect x="${fx.toFixed(0)}" y="${fy.toFixed(0)}" width="5" height="7" fill="${ventana}" opacity="${noche ? .9 : .55}"/>`;
+          x += w + 4;
+        }
+        if (f.hito === "torre") {
+          const c = noche ? "#E0A443" : "#5B4A3C";
+          s += `<g fill="${c}"><polygon points="198,34 202,34 207,96 214,150 236,262 220,262 207,214 193,214 180,262 164,262 186,150 193,96"/><rect x="183" y="146" width="34" height="7"/><rect x="190" y="93" width="20" height="5"/><rect x="176" y="208" width="48" height="8"/></g><path d="M184 262 Q200 226 216 262Z" fill="${noche ? "#121F35" : "#4E6378"}"/>`;
+          if (noche) s += `<circle cx="200" cy="32" r="3.5" fill="#FFF3C4"/>`;
+        }
+        s += `<rect y="262" width="400" height="38" fill="${noche ? "#0B1424" : "#3C4A57"}"/>`;
+        break;
+      }
+      case "montana": {
+        const granito = tarde ? "#6B5664" : "#5C6B79", base = 215, d = (r() - .5) * 40;
+        [[120 + d, 72], [185 + d, 46], [250 + d, 66]].forEach(([cx, cima]) => {
+          const w = 30 + r() * 12;
+          s += `<polygon points="${cx - w},${base} ${cx - w * .4},${cima + 10} ${cx},${cima} ${cx + w * .38},${cima + 12} ${cx + w},${base}" fill="${granito}"/>`;
+          s += `<polygon points="${cx - w * .4},${cima + 10} ${cx},${cima} ${cx + w * .38},${cima + 12} ${cx + w * .12},${cima + 22} ${cx - w * .2},${cima + 18}" fill="#F3F6F9" opacity=".92"/>`;
+        });
+        s += `<path d="M0 222 L60 184 L120 210 L200 188 L280 212 L340 180 L400 204 L400 300 L0 300Z" fill="${tarde ? "#3D5544" : "#2F6A4B"}"/>`;
+        s += `<rect y="238" width="400" height="62" fill="${tarde ? "#6E8FA8" : "#3E8DB5"}"/><path d="M40 252h70M180 262h90M300 248h60" stroke="#FFFFFF" stroke-opacity=".45" stroke-width="2"/>`;
+        break;
+      }
+      case "costa": {
+        const mar = tarde ? "#3F7CA6" : "#2C86B5", cerro = tarde ? "#8B6B5A" : "#7F9C6A";
+        s += `<rect y="190" width="400" height="110" fill="${mar}"/>`;
+        for (let i = 0; i < 7; i++) s += `<path d="M${(r() * 180).toFixed(0)} ${(205 + i * 13).toFixed(0)}h${(30 + r() * 50).toFixed(0)}" stroke="#FFFFFF" stroke-opacity=".35" stroke-width="2"/>`;
+        s += `<path d="M170 300 Q230 150 400 120 L400 300Z" fill="${cerro}"/>`;
+        const colores = ["#F25F5C", "#FFE066", "#70C1B3", "#247BA0", "#F7B267", "#B388EB", "#FFFFFF"];
+        const casas = [];
+        for (let i = 0; i < 18; i++) { const t = r(); casas.push([215 + t * 180, 255 - t * 112 + r() * 34, 14 + r() * 9]); }
+        casas.sort((a, b) => a[1] - b[1]).forEach(([cx, cy, w]) => {
+          const c = colores[Math.floor(r() * colores.length)];
+          s += `<rect x="${(cx - w / 2).toFixed(0)}" y="${cy.toFixed(0)}" width="${w.toFixed(0)}" height="${(w * .9).toFixed(0)}" fill="${c}"/><polygon points="${(cx - w / 2 - 2).toFixed(0)},${cy.toFixed(0)} ${cx.toFixed(0)},${(cy - w * .45).toFixed(0)} ${(cx + w / 2 + 2).toFixed(0)},${cy.toFixed(0)}" fill="#5B3A31" opacity=".8"/>`;
+        });
+        break;
+      }
+      case "desierto": {
+        s += `<path d="M0 205 Q90 175 180 200 T400 190 V300 H0Z" fill="${tarde ? "#E3A15E" : "#E6B877"}"/>`;
+        s += `<path d="M0 240 Q120 205 240 236 T400 228 V300 H0Z" fill="${tarde ? "#C97A45" : "#D49A5E"}"/>`;
+        s += `<path d="M0 272 Q150 248 290 270 T400 266 V300 H0Z" fill="${tarde ? "#A85E35" : "#B97A44"}"/>`;
+        const cx = 60 + r() * 280;
+        s += `<g fill="#5A3A28" opacity=".85"><rect x="${cx.toFixed(0)}" y="214" width="6" height="30" rx="3"/><rect x="${(cx - 9).toFixed(0)}" y="222" width="6" height="14" rx="3"/><rect x="${(cx + 9).toFixed(0)}" y="218" width="6" height="12" rx="3"/></g>`;
+        break;
+      }
+      case "torii": {
+        s += `<path d="M0 210 Q100 190 200 205 T400 200 V300 H0Z" fill="#3F6B4A"/>`;
+        for (let i = 0; i < 6; i++) {
+          const k = 1 - i * .15, cx = 200 + (i % 2 ? 8 : -8) * i, ancho = 150 * k, alto = 150 * k, y0 = 270 - i * 11;
+          const rojo = i % 2 ? "#C8402C" : "#D9512F";
+          s += `<g fill="${rojo}"><rect x="${(cx - ancho / 2 + 10 * k).toFixed(0)}" y="${(y0 - alto).toFixed(0)}" width="${(10 * k).toFixed(1)}" height="${alto.toFixed(0)}"/><rect x="${(cx + ancho / 2 - 20 * k).toFixed(0)}" y="${(y0 - alto).toFixed(0)}" width="${(10 * k).toFixed(1)}" height="${alto.toFixed(0)}"/><rect x="${(cx - ancho / 2).toFixed(0)}" y="${(y0 - alto - 6 * k).toFixed(0)}" width="${ancho.toFixed(0)}" height="${(12 * k).toFixed(1)}" rx="3"/><rect x="${(cx - ancho / 2 + 8 * k).toFixed(0)}" y="${(y0 - alto + 22 * k).toFixed(0)}" width="${(ancho - 16 * k).toFixed(0)}" height="${(7 * k).toFixed(1)}"/></g>`;
+        }
+        break;
+      }
+      case "arrozal": {
+        const verdes = ["#5E9E3F", "#77B54C", "#4E8A35", "#8CC45A", "#3F7A2C"];
+        for (let i = 0; i < 9; i++) { const y = 150 + i * 18; s += `<path d="M-10 ${y + 10} Q100 ${y - 12 + r() * 10} 200 ${y + 6} T410 ${y} V300 H-10Z" fill="${verdes[i % verdes.length]}"/>`; }
+        const px = 60 + r() * 280;
+        s += `<g stroke="#2E4A22" stroke-width="3" fill="none"><path d="M${px} 210 Q${px + 6} 160 ${px + 2} 120"/></g><g fill="#2E5A25"><path d="M${px + 2} 120 q-30 -4 -44 14 q24 -6 44 -14Z"/><path d="M${px + 2} 120 q30 -4 44 14 q-24 -6 -44 -14Z"/><path d="M${px + 2} 120 q-8 -26 -32 -30 q18 12 32 30Z"/><path d="M${px + 2} 120 q8 -26 32 -30 q-18 12 -32 30Z"/></g>`;
+        break;
+      }
+      case "aurora": {
+        const bandas = ["#43E97B", "#38F9D7", "#7CF3A0"];
+        for (let i = 0; i < 3; i++) { const y = 70 + i * 22 + r() * 10; s += `<path d="M-20 ${y + 40} C80 ${y - 30} 160 ${y + 70} 240 ${y + 10} S360 ${y - 20} 420 ${y + 30} L420 ${y + 70} C340 ${y + 40} 260 ${y + 90} 180 ${y + 60} S40 ${y + 40} -20 ${y + 90}Z" fill="${bandas[i]}" opacity=".26"/>`; }
+        s += `<path d="M0 230 L70 190 L130 215 L210 170 L290 212 L350 186 L400 205 V300 H0Z" fill="#0E1A2C"/><rect y="256" width="400" height="44" fill="#C9D6E3" opacity=".9"/>`;
+        break;
+      }
+      case "ruinas": {
+        s += `<path d="M150 260 Q180 110 225 70 Q250 60 262 95 Q300 170 330 260Z" fill="#2E6B4E"/><path d="M-10 260 Q80 170 160 200 L170 260Z" fill="#3E7D59"/>`;
+        for (let i = 0; i < 6; i++) s += `<path d="M${10 + i * 6} ${265 - i * 9} H${150 - i * 10}" stroke="#8E8676" stroke-width="5"/>`;
+        for (let i = 0; i < 9; i++) { const x = 30 + r() * 120, y = 220 + r() * 30; s += `<rect x="${x.toFixed(0)}" y="${y.toFixed(0)}" width="${(10 + r() * 14).toFixed(0)}" height="${(8 + r() * 8).toFixed(0)}" fill="#A69E8E"/>`; }
+        s += `<ellipse cx="${(90 + r() * 80).toFixed(0)}" cy="120" rx="70" ry="16" fill="#FFFFFF" opacity=".55"/><rect y="262" width="400" height="38" fill="#4D7A45"/>`;
+        break;
+      }
+    }
+    return s + "</svg>";
+  }
+  function fotoEl(f) {
+    const caja = el("div", "foto");
+    if (f.tipo === "img") { const img = el("img"); img.src = f.src; img.alt = "Foto subida"; caja.append(img); }
+    else caja.innerHTML = postal(f);
+    return caja;
+  }
+
+  /* ---------- Utilidades ---------- */
+  const fmtMes = new Intl.DateTimeFormat("es", { month: "long", year: "numeric" });
+  const fecha = (ym) => { const [a, m] = ym.split("-").map(Number); return fmtMes.format(new Date(a, m - 1, 1)); };
+  const num = new Intl.NumberFormat("es");
+  const coords = (p) => `${Math.abs(p.lat).toFixed(2).replace(".", ",")}° ${p.lat < 0 ? "S" : "N"} · ${Math.abs(p.lon).toFixed(2).replace(".", ",")}° ${p.lon < 0 ? "O" : "E"}`;
+  let paisesGeo = [];
+  const nombrePais = (iso) => NOMBRES[iso] || (paisesGeo.find((f) => f.id === iso)?.properties?.name) || "En el mar";
+  const avatar = (autor, grande) => { const per = PERSONAS[autor]; const a = el("span", "avatar " + per.clase + (grande ? " grande" : ""), per.inicial); a.setAttribute("aria-hidden", "true"); return a; };
+  const icono = (d, extra) => { const ns = "http://www.w3.org/2000/svg"; const s = document.createElementNS(ns, "svg"); s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("aria-hidden", "true"); const p = document.createElementNS(ns, "path"); p.setAttribute("d", d); if (extra) p.setAttribute("class", extra); s.append(p); return s; };
+  const D_CORAZON = "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z";
+  const D_BANDERA = "M6 21V4m0 0h11l-2 4 2 4H6";
+  const D_PIN = "M12 21s6-5.4 6-11a6 6 0 1 0-12 0c0 5.6 6 11 6 11Zm0-9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z";
+  let avisoT;
+  function avisar(texto) { const a = $("#aviso"); a.textContent = texto; a.classList.add("visible"); clearTimeout(avisoT); avisoT = setTimeout(() => a.classList.remove("visible"), 2600); }
+
+  /* ---------- Estado ---------- */
+  let modo = "mio";         // "mio" | "comunidad"
+  let vista = "mapa";
+  let elegirEnMapa = false;
+  let fantasma = null;      // punto elegido en el mapa mientras se crea un pincho
+  let recienClavado = null;
+
+  /* ---------- Mapa ---------- */
+  const svg = d3.select("#mapa");
+  let gMundo, gPines, proyeccion, camino, zoom, W = 0, H = 0, t = d3.zoomIdentity, mapaListo = false;
+
+  function paisEn(lon, lat) { const f = paisesGeo.find((g) => d3.geoContains(g, [lon, lat])); return f ? f.id : null; }
+
+  function construirMapa() {
+    const caja = svg.node().getBoundingClientRect();
+    W = caja.width; H = caja.height;
+    if (!W || !H) return;
+    svg.selectAll("*").remove();
+    const esfera = { type: "Sphere" };
+    proyeccion = d3.geoNaturalEarth1().fitHeight(H * .94, esfera);
+    camino = d3.geoPath(proyeccion);
+    const [[x0, y0], [x1, y1]] = camino.bounds(esfera);
+    proyeccion.translate([proyeccion.translate()[0] - x0, proyeccion.translate()[1] - y0 + H * .03]);
+    const [[bx0, by0], [bx1, by1]] = camino.bounds(esfera);
+    gMundo = svg.append("g");
+    gMundo.append("path").attr("class", "oceano").attr("d", camino(esfera));
+    gMundo.append("path").attr("class", "graticula").attr("d", camino(d3.geoGraticule10()));
+    gMundo.append("path").attr("class", "ecuador").attr("d", camino({ type: "LineString", coordinates: [[-180, 0], [-90, 0], [0, 0], [90, 0], [180, 0]] }));
+    gMundo.selectAll("path.pais").data(paisesGeo).join("path").attr("class", "pais").attr("d", camino);
+    gPines = svg.append("g").attr("class", "capa-pines");
+    const kMin = W / (bx1 - bx0);
+    zoom = d3.zoom().scaleExtent([kMin, 18]).translateExtent([[bx0 - 20, by0 - 60], [bx1 + 20, by1 + 60]])
+      .on("zoom", (e) => { t = e.transform; gMundo.attr("transform", t); pintarPines(); });
+    svg.call(zoom);
+    svg.on("click", alTocarMapa);
+    colorearPaises();
+    encuadrar(false);
+    mapaListo = true;
+  }
+
+  function colorearPaises() {
+    if (!gMundo) return;
+    const mios = new Set(PINES.filter((p) => p.autor === "tu" && p.iso).map((p) => p.iso));
+    const otros = new Set(PINES.filter((p) => p.autor !== "tu" && p.iso).map((p) => p.iso));
+    gMundo.selectAll("path.pais")
+      .classed("visitado", (d) => modo === "mio" && mios.has(d.id))
+      .classed("comunidad", (d) => modo === "comunidad" && otros.has(d.id));
+  }
+
+  const visibles = () => modo === "mio" ? PINES.filter((p) => p.autor === "tu") : PINES.filter((p) => p.autor !== "tu" && p.privacidad === "todos");
+
+  function pintarPines() {
+    if (!gPines) return;
+    const puntos = visibles().map((p) => { const [x, y] = proyeccion([p.lon, p.lat]); const [sx, sy] = t.apply([x, y]); return { p, sx, sy }; });
+    const grupos = [];
+    puntos.sort((a, b) => a.sy - b.sy).forEach((pt) => {
+      const g = grupos.find((g) => Math.hypot(g.sx - pt.sx, g.sy - pt.sy) < 24);
+      if (g) { g.items.push(pt); g.sx = d3.mean(g.items, (i) => i.sx); g.sy = d3.mean(g.items, (i) => i.sy); }
+      else grupos.push({ sx: pt.sx, sy: pt.sy, items: [pt] });
+    });
+    grupos.forEach((g) => { g.clave = g.items.map((i) => i.p.id).sort().join("|"); });
+    gPines.selectAll("g.marca").data(grupos, (g) => g.clave)
+      .join((entrar) => entrar.append("g").attr("tabindex", 0).attr("role", "button").each(function (g) { dibujarMarca(d3.select(this), g); }))
+      .attr("transform", (g) => `translate(${g.sx.toFixed(1)},${g.sy.toFixed(1)})`)
+      .order();
+    gPines.selectAll("g.fantasma").remove();
+    if (fantasma) {
+      const [x, y] = t.apply(proyeccion([fantasma.lon, fantasma.lat]));
+      const f = gPines.append("g").attr("class", "marca fantasma u-mix").attr("transform", `translate(${x},${y})`);
+      cuerpoPin(f.append("g").attr("class", "cuerpo"));
+    }
+  }
+
+  function cuerpoPin(g) {
+    g.append("ellipse").attr("class", "sombra").attr("cx", 3).attr("cy", 1).attr("rx", 5).attr("ry", 1.8);
+    g.append("line").attr("class", "aguja").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", -12);
+    g.append("circle").attr("class", "cabeza").attr("cy", -18).attr("r", 7.5);
+    g.append("circle").attr("class", "brillo").attr("cx", -2.4).attr("cy", -20.4).attr("r", 2.3);
+  }
+
+  function dibujarMarca(sel, g) {
+    if (g.items.length === 1) {
+      const p = g.items[0].p;
+      sel.attr("class", "marca " + PERSONAS[p.autor].clase + (recienClavado === p.id ? " nuevo" : "")).attr("aria-label", `${p.nombre}, ${nombrePais(p.iso)}`);
+      cuerpoPin(sel.append("g").attr("class", "cuerpo"));
+      sel.append("circle").attr("class", "toque").attr("cy", -14).attr("r", 18);
+      sel.on("click", (e) => { e.stopPropagation(); if (!elegirEnMapa) abrirLugar(p); });
+    } else {
+      const autores = new Set(g.items.map((i) => i.p.autor));
+      const clase = autores.size === 1 ? PERSONAS[g.items[0].p.autor].clase : "u-mix";
+      sel.attr("class", "marca grupo " + clase).attr("aria-label", `${g.items.length} lugares: ${g.items.map((i) => i.p.nombre).join(", ")}`);
+      sel.append("circle").attr("class", "grupo-fondo").attr("r", 15).attr("cy", -12);
+      sel.append("text").attr("class", "grupo-num").attr("y", -12).text(g.items.length);
+      sel.append("circle").attr("class", "toque").attr("cy", -12).attr("r", 20);
+      sel.on("click", (e) => { e.stopPropagation(); if (elegirEnMapa) return; acercarA(g.items.map((i) => i.p)); });
+    }
+    sel.on("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sel.dispatch("click"); } });
+  }
+
+  function transformacionPara(lista, margen) {
+    const pts = lista.map((p) => proyeccion([p.lon, p.lat]));
+    const [x0, x1] = d3.extent(pts, (d) => d[0]), [y0, y1] = d3.extent(pts, (d) => d[1]);
+    const ancho = Math.max(x1 - x0, 1), alto = Math.max(y1 - y0, 1);
+    const [kMin, kMax] = zoom.scaleExtent();
+    const k = Math.max(kMin, Math.min(lista.length === 1 ? 5 : kMax, Math.min((W - margen * 2) / ancho, (H - margen * 2 - 60) / alto)));
+    return d3.zoomIdentity.translate(W / 2, H / 2 + 20).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
+  }
+  function irA(tr, animado) { (animado && !reducirMovimiento ? svg.transition().duration(850) : svg).call(zoom.transform, tr); }
+  function encuadrar(animado = true) { const lista = visibles(); if (lista.length) irA(transformacionPara(lista, 48), animado); }
+  function acercarA(lista) { irA(transformacionPara(lista, 70), true); }
+
+  function alTocarMapa(e) {
+    if (!elegirEnMapa) return;
+    const [x, y] = d3.pointer(e, svg.node());
+    const [lon, lat] = proyeccion.invert(t.invert([x, y]));
+    if (!isFinite(lon) || !isFinite(lat) || Math.abs(lat) > 85) { avisar("Toca dentro del mapa"); return; }
+    fantasma = { lon, lat, iso: paisEn(lon, lat) };
+    pintarPines();
+    salirDeElegir();
+    mostrarElegido({ nombre: fantasma.iso ? nombrePais(fantasma.iso) : "Punto en el mar", iso: fantasma.iso, lat, lon, desdeMapa: true });
+    abrirHoja("#hoja-nuevo");
+  }
+
+  /* ---------- Chip con cifras ---------- */
+  function pintarChip() {
+    const chip = $("#chip-mapa"); chip.replaceChildren();
+    const lista = visibles();
+    const add = (n, texto) => { const s = el("span"); const b = el("b", null, num.format(n)); s.append(b, " " + texto); chip.append(s); };
+    if (modo === "mio") { add(new Set(lista.map((p) => p.iso).filter(Boolean)).size, "países"); add(lista.length, "lugares"); }
+    else { add(new Set(lista.map((p) => p.autor)).size, "viajeros"); add(lista.length, "lugares"); }
+  }
+
+  /* ---------- Hojas ---------- */
+  function abrirHoja(id) {
+    document.querySelectorAll(".hoja.abierta").forEach((h) => { h.classList.remove("abierta"); h.setAttribute("aria-hidden", "true"); });
+    $("#velo").hidden = false; const h = $(id); h.classList.add("abierta"); h.setAttribute("aria-hidden", "false");
+    setTimeout(() => h.querySelector(".cerrar").focus({ preventScroll: true }), 50);
+  }
+  function cerrarHojas() {
+    document.querySelectorAll(".hoja.abierta").forEach((h) => { h.classList.remove("abierta"); h.setAttribute("aria-hidden", "true"); });
+    $("#velo").hidden = true;
+  }
+  document.querySelectorAll("[data-cerrar]").forEach((b) => b.addEventListener("click", () => { cerrarHojas(); if (!elegirEnMapa) { fantasma = null; pintarPines(); } }));
+  $("#velo").addEventListener("click", () => { cerrarHojas(); fantasma = null; pintarPines(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { cerrarHojas(); if (elegirEnMapa) salirDeElegir(); } });
+
+  function botonMeGusta(p) {
+    const b = el("button", "boton-suave"); b.type = "button"; b.setAttribute("aria-pressed", String(p.meGusta));
+    const pintar = () => { b.replaceChildren(icono(D_CORAZON, "corazon"), el("span", "num", num.format(p.megusta + (p.meGusta ? 1 : 0)))); b.setAttribute("aria-label", `Me gusta, ${p.megusta + (p.meGusta ? 1 : 0)}`); };
+    b.addEventListener("click", () => { p.meGusta = !p.meGusta; b.setAttribute("aria-pressed", String(p.meGusta)); pintar(); });
+    pintar(); return b;
+  }
+  function botonQuieroIr(p) {
+    const b = el("button", "boton-suave"); b.type = "button"; b.setAttribute("aria-pressed", String(p.quieroIr));
+    const pintar = () => b.replaceChildren(icono(D_BANDERA), p.quieroIr ? "En tu lista" : "Quiero ir");
+    b.addEventListener("click", () => { p.quieroIr = !p.quieroIr; b.setAttribute("aria-pressed", String(p.quieroIr)); pintar(); if (p.quieroIr) avisar(`${p.nombre} añadido a «Quiero ir»`); });
+    pintar(); return b;
+  }
+
+  function abrirLugar(p) {
+    const c = $("#contenido-lugar"); c.replaceChildren();
+    const car = el("div", "carrusel"); p.fotos.forEach((f) => car.append(fotoEl(f)));
+    if (!p.fotos.length) { const vacia = el("div", "foto sin-fotos", "Este pincho aún no tiene fotos"); car.append(vacia); }
+    c.append(car);
+    if (p.fotos.length > 1) {
+      const pts = el("div", "puntos"); p.fotos.forEach((_, i) => pts.append(el("i", i ? "" : "activo"))); c.append(pts);
+      car.addEventListener("scroll", () => { const i = Math.round(car.scrollLeft / car.clientWidth); [...pts.children].forEach((d, j) => d.classList.toggle("activo", i === j)); }, { passive: true });
+    }
+    c.append(el("h2", "lugar-titulo", p.nombre));
+    const meta = el("div", "meta");
+    meta.append(el("span", "iso", p.iso || "—"), el("span", null, nombrePais(p.iso)), el("span", "coords", coords(p)));
+    c.append(meta);
+    const autor = el("div", "fila-autor"); const quien = el("div", "quien");
+    quien.append(el("strong", null, p.autor === "tu" ? "Tu viaje" : PERSONAS[p.autor].nombre), el("span", null, fecha(p.fecha) + (p.privacidad !== "todos" ? (p.privacidad === "yo" ? " · solo tú" : " · amigos") : "")));
+    autor.append(avatar(p.autor), quien); c.append(autor);
+    if (p.texto) c.append(el("p", "relato", p.texto));
+    const acc = el("div", "acciones"); acc.append(botonMeGusta(p)); if (p.autor !== "tu") acc.append(botonQuieroIr(p));
+    c.append(acc);
+    abrirHoja("#hoja-lugar");
+  }
+
+  /* ---------- Vistas ---------- */
+  function cambiarVista(nueva) {
+    vista = nueva;
+    $("#vista-mapa").hidden = nueva !== "mapa";
+    $("#vista-explorar").hidden = nueva !== "explorar";
+    $("#vista-perfil").hidden = nueva !== "perfil";
+    $("#segmentos").style.visibility = nueva === "mapa" ? "visible" : "hidden";
+    document.querySelectorAll(".pestanas [data-vista]").forEach((b) => { if (b.dataset.vista === nueva) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+    if (nueva === "explorar") pintarExplorar();
+    if (nueva === "perfil") pintarPerfil();
+    if (nueva === "mapa" && !mapaListo) requestAnimationFrame(construirMapa);
+  }
+  document.querySelectorAll(".pestanas [data-vista]").forEach((b) => b.addEventListener("click", () => cambiarVista(b.dataset.vista)));
+
+  function cambiarModo(nuevo) {
+    modo = nuevo;
+    $("#ver-mio").setAttribute("aria-pressed", String(modo === "mio"));
+    $("#ver-comunidad").setAttribute("aria-pressed", String(modo === "comunidad"));
+    colorearPaises(); pintarPines(); pintarChip(); if (mapaListo) encuadrar(true);
+  }
+  $("#ver-mio").addEventListener("click", () => cambiarModo("mio"));
+  $("#ver-comunidad").addEventListener("click", () => cambiarModo("comunidad"));
+  $("#acercar").addEventListener("click", () => svg.transition().duration(reducirMovimiento ? 0 : 300).call(zoom.scaleBy, 1.8));
+  $("#alejar").addEventListener("click", () => svg.transition().duration(reducirMovimiento ? 0 : 300).call(zoom.scaleBy, 1 / 1.8));
+  $("#encuadrar").addEventListener("click", () => encuadrar(true));
+
+  function verEnMapa(p) {
+    cambiarVista("mapa");
+    if (modo !== (p.autor === "tu" ? "mio" : "comunidad")) cambiarModo(p.autor === "tu" ? "mio" : "comunidad");
+    setTimeout(() => { acercarA([p]); setTimeout(() => abrirLugar(p), reducirMovimiento ? 0 : 880); }, 60);
+  }
+
+  function pintarExplorar() {
+    const lista = $("#lista-explorar"); lista.replaceChildren();
+    PINES.filter((p) => p.privacidad === "todos").slice().sort((a, b) => b.fecha.localeCompare(a.fecha)).forEach((p) => {
+      const t = el("article", "tarjeta");
+      const fila = el("div", "fila-autor"); const quien = el("div", "quien");
+      quien.append(el("strong", null, PERSONAS[p.autor].nombre), el("span", null, `en ${p.nombre}, ${nombrePais(p.iso)} · ${fecha(p.fecha)}`));
+      fila.append(avatar(p.autor), quien);
+      if (p.fotos.length) t.append(fila, fotoEl(p.fotos[0])); else t.append(fila);
+      if (p.texto) t.append(el("p", "relato", p.texto));
+      const acc = el("div", "acciones"); acc.append(botonMeGusta(p));
+      const ver = el("button", "boton-suave"); ver.type = "button"; ver.append(icono(D_PIN), "Ver en el mapa"); ver.addEventListener("click", () => verEnMapa(p));
+      acc.append(ver); if (p.autor !== "tu") acc.append(botonQuieroIr(p));
+      t.append(acc); lista.append(t);
+    });
+  }
+
+  function pintarPerfil() {
+    const v = $("#vista-perfil"); v.replaceChildren();
+    const mios = PINES.filter((p) => p.autor === "tu");
+    const paises = d3.rollups(mios.filter((p) => p.iso), (g) => g.length, (p) => p.iso).sort((a, b) => b[1] - a[1]);
+    const fotos = d3.sum(mios, (p) => p.fotos.length);
+    const cab = el("div", "perfil-cabeza"); const txt = el("div"); txt.append(el("h2", null, "Tu mapa"), el("p", null, "@tu.usuario · desde 2023"));
+    cab.append(avatar("tu", true), txt); v.append(cab);
+    const cifras = el("div", "cifras");
+    [[paises.length, "países"], [mios.length, "lugares"], [fotos, "fotos"]].forEach(([n, l]) => { const d = el("div"); d.append(el("strong", null, num.format(n)), el("span", null, l)); cifras.append(d); });
+    v.append(cifras);
+    const progreso = el("div", "tarjeta"); const pct = paises.length / 195 * 100;
+    const fila = el("div", "fila-autor"); fila.style.justifyContent = "space-between";
+    fila.append(el("strong", null, "Del mundo"), el("span", "num", `${paises.length} de 195 · ${pct.toLocaleString("es", { maximumFractionDigits: 1 })} %`));
+    const barra = el("div", "barra"); const i = el("i"); i.style.width = Math.max(pct, 1.5) + "%"; barra.append(i);
+    progreso.append(fila, barra);
+    const casa = mios[0];
+    if (casa && mios.length > 1) {
+      const lejos = mios.slice(1).map((p) => ({ p, km: d3.geoDistance([casa.lon, casa.lat], [p.lon, p.lat]) * RADIO_TIERRA })).sort((a, b) => b.km - a.km)[0];
+      progreso.append(el("p", "relato", `Lo más lejos de ${casa.nombre}: ${lejos.p.nombre}, a ${num.format(Math.round(lejos.km / 10) * 10)} km en línea recta.`));
+    }
+    v.append(progreso);
+    const lp = el("div", "tarjeta"); lp.append(el("span", "etiqueta", "Tus países"));
+    const lista = el("div", "lista-paises");
+    paises.forEach(([iso, n]) => { const fila = el("div"); const izq = el("span"); izq.append(el("span", "iso", iso), " " + nombrePais(iso)); fila.append(izq, el("span", "num", `${n} ${n === 1 ? "lugar" : "lugares"}`)); lista.append(fila); });
+    lp.append(lista); v.append(lp);
+    const poster = el("div", "tarjeta poster");
+    poster.append(el("span", "etiqueta", "Próximamente"), el("h3", null, "Tu mapa en la pared"), el("p", null, "Un póster de 50 × 70 cm con tus países pintados y un pincho en cada lugar. Lo diseñas aquí y te llega a casa."));
+    v.append(poster);
+    const nota = el("div", "tarjeta demo-nota");
+    nota.append(el("h3", null, "Sobre esta demo"), el("p", null, "Los viajeros y sus fotos son inventados; las fotos de ejemplo son dibujos. Lo que añadas se queda en este navegador hasta que recargues y no se envía a nadie."));
+    v.append(nota);
+  }
+
+  /* ---------- Añadir un pincho ---------- */
+  let elegido = null; let fotosNuevas = [];
+  const hoy = new Date();
+  function reiniciarForm() {
+    $("#form-nuevo").reset(); elegido = null; fotosNuevas = []; fantasma = null;
+    $("#fecha-lugar").value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+    $("#elegido").hidden = true; $("#sugerencias").hidden = true; $("#error-nuevo").hidden = true;
+    pintarFotosNuevas(); validar();
+  }
+  function validar() { $("#poner-pincho").disabled = !elegido; }
+  function mostrarElegido(l) {
+    elegido = l;
+    const caja = $("#elegido"); caja.replaceChildren();
+    const txt = el("div"); txt.append(el("strong", null, l.nombre), el("span", "coords", coords(l)));
+    const cambiar = el("button", "boton-suave", "Cambiar"); cambiar.type = "button";
+    cambiar.addEventListener("click", () => { elegido = null; fantasma = null; pintarPines(); caja.hidden = true; $("#buscar-lugar").focus(); validar(); });
+    caja.append(txt, cambiar); caja.hidden = false;
+    $("#sugerencias").hidden = true; $("#buscar-lugar").value = "";
+    if (!l.desdeMapa) $("#nombre-lugar").value = l.nombre;
+    validar();
+  }
+  $("#buscar-lugar").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLocaleLowerCase("es").normalize("NFD").replace(/\p{Diacritic}/gu, "");
+    const caja = $("#sugerencias"); caja.replaceChildren();
+    if (q.length < 2) { caja.hidden = true; return; }
+    const res = CIUDADES.filter(([n]) => n.toLocaleLowerCase("es").normalize("NFD").replace(/\p{Diacritic}/gu, "").includes(q)).slice(0, 5);
+    if (!res.length) { const b = el("button", null, "No está en la lista: elígelo en el mapa"); b.type = "button"; b.addEventListener("click", entrarEnElegir); caja.append(b); }
+    res.forEach(([n, iso, lat, lon]) => { const b = el("button"); b.type = "button"; b.append(el("span", null, n), el("span", "iso", iso)); b.addEventListener("click", () => { fantasma = null; mostrarElegido({ nombre: n, iso, lat, lon }); }); caja.append(b); });
+    caja.hidden = false;
+  });
+  function entrarEnElegir() {
+    if (vista !== "mapa") cambiarVista("mapa");
+    cerrarHojas(); elegirEnMapa = true; $("#aviso-elegir").hidden = false;
+  }
+  function salirDeElegir() { elegirEnMapa = false; $("#aviso-elegir").hidden = true; }
+  $("#elegir-en-mapa").addEventListener("click", entrarEnElegir);
+  $("#cancelar-elegir").addEventListener("click", () => { salirDeElegir(); abrirHoja("#hoja-nuevo"); });
+
+  function pintarFotosNuevas() {
+    const caja = $("#fotos-subidas"); const subir = caja.querySelector(".subir");
+    caja.querySelectorAll(".foto").forEach((f) => f.remove());
+    fotosNuevas.forEach((f) => caja.insertBefore(fotoEl(f), subir));
+    subir.hidden = fotosNuevas.length >= 8;
+  }
+  $("#entrada-fotos").addEventListener("change", (e) => {
+    const archivos = [...e.target.files].filter((f) => f.type.startsWith("image/")).slice(0, 8 - fotosNuevas.length);
+    archivos.forEach((f) => fotosNuevas.push({ tipo: "img", src: URL.createObjectURL(f) }));
+    e.target.value = ""; pintarFotosNuevas();
+  });
+  $("#boton-anadir").addEventListener("click", () => { reiniciarForm(); abrirHoja("#hoja-nuevo"); });
+
+  $("#form-nuevo").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!elegido) { const er = $("#error-nuevo"); er.textContent = "Elige dónde clavar el pincho: busca una ciudad o tócala en el mapa."; er.hidden = false; return; }
+    const priv = document.querySelector('input[name="privacidad"]:checked').value;
+    const aprox = $("#ubicacion-aprox").checked;
+    const nombre = $("#nombre-lugar").value.trim() || elegido.nombre;
+    const p = lugar("tu", nombre, elegido.iso, aprox ? Math.round(elegido.lat * 10) / 10 : elegido.lat, aprox ? Math.round(elegido.lon * 10) / 10 : elegido.lon,
+      $("#fecha-lugar").value || `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`, $("#texto-lugar").value.trim(),
+      fotosNuevas.slice(), 0);
+    p.privacidad = priv;
+    PINES.push(p);
+    recienClavado = p.id; fantasma = null; cerrarHojas();
+    cambiarVista("mapa");
+    if (modo !== "mio") cambiarModo("mio");
+    colorearPaises(); pintarChip();
+    gPines.selectAll("g.marca").remove();
+    acercarA([p]);
+    setTimeout(() => { recienClavado = null; }, 1200);
+    avisar(`Pincho clavado en ${p.nombre}`);
+  });
+
+  /* ---------- Arranque ---------- */
+  function arrancar() {
+    if (!window.d3 || !window.topojson || !window.Datamap) {
+      const aviso = el("div", "sin-mapa", "No se pudo cargar el mapa. Revisa la conexión y vuelve a abrir la página.");
+      $("#vista-mapa").append(aviso); return;
+    }
+    const topo = Datamap.prototype.worldTopo;
+    paisesGeo = topojson.feature(topo, topo.objects.world).features.filter((f) => f.id !== "ATA");
+    pintarChip();
+    construirMapa();
+    let reloj;
+    new ResizeObserver(() => { clearTimeout(reloj); reloj = setTimeout(() => { const c = svg.node().getBoundingClientRect(); if (vista === "mapa" && (Math.abs(c.width - W) > 2 || Math.abs(c.height - H) > 2)) construirMapa(); }, 150); }).observe($("#vista-mapa"));
+  }
+  reiniciarForm();
+  arrancar();
+})();
+</script>
