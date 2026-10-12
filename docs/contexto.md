@@ -70,6 +70,9 @@ Vicente: «soy solo yo, y sigo lo que recomiendas y propones».
 - **Cajas, en este orden:** BD (crítica) → lote de Fotos, Cáscara PWA y Documentación → Mapa (crítica) → Interfaz
   (crítica).
 
-## 6. Pendiente de Vicente
+## 6. Estado y pendiente
 
-- Verificar cada Caja al terminarla y ejecutar el SQL en Supabase.
+- **12/10:** BD hecha y ejecutada en Supabase (`mundi_bd` = PASA, acceso solo para Vicente); lote de Fotos, Cáscara
+  PWA y Documentación hecho. Siguen el Mapa y la Interfaz. El estado de cada parte está en `README.md`.
+- Pendiente de Vicente: verificar cada Caja al terminarla y ejecutar el SQL en Supabase. Lo que tenga que pegar se
+  le da completo y ya rellenado.

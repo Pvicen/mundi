@@ -92,6 +92,9 @@ Orden aprobado: BD → lote de Fotos, Cáscara PWA y Documentación → Mapa →
 | Caja | Tipo | Ficheros | Contrato |
 |---|---|---|---|
 | BD | crítica | `setup/migraciones/` y su prueba `setup/pruebas/bd.md` | «BD» de `docs/contratos.md` |
+| Fotos | lote | `fotos.js` y su prueba `setup/pruebas/fotos.test.mjs` | «Fotos» |
+| Cáscara PWA | lote | `sw.js`, `manifest.webmanifest` e `icons/` (dibujados con `setup/iconos.py`) | «Cáscara PWA» |
+| Documentación | lote | `README.md` y `_config.yml` (lo que no se publica en Pages) | — |
 
 **Lotes (C.C.D. §6):** son críticas toda migración o cambio de RLS o del almacén, el mapa y lo que toque la sesión o
 los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir en lote.
@@ -105,7 +108,10 @@ los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir 
   Mundi lleva siempre el prefijo `mundi`.
 - **No ejecutar SQL ni desplegar.** Lo hace Vicente desde el panel de Supabase: se le deja el archivo y los pasos. Toda
   migración va en `setup/migraciones/` y se puede ejecutar dos veces.
-- **Quitar el GPS (EXIF) de las fotos** antes de subirlas.
+- **Quitar el GPS (EXIF) de las fotos** antes de subirlas: toda foto pasa por `prepararFoto` de `fotos.js`.
+- **No añadir build ni librerías sueltas.** Las de CDN, con versión fijada. Si cambia un fichero de la cáscara o una
+  URL de CDN, sube el número de `CACHE` en `sw.js`.
+- **No usar `innerHTML` con datos** de la base: nodos de texto y `textContent`.
 - **No poner fotos ni datos personales reales en el repo** ni en la demo: los ejemplos son inventados.
 - **No comprar, contratar ni registrar nada**: dominios, planes de pago, cuentas de desarrollador.
 - **No pedir ni escribir contraseñas, claves ni tokens**, ni en el chat ni en archivos. Los secretos, fuera del repo.
@@ -117,6 +123,7 @@ los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir 
 - `docs/contexto.md` — la idea, el objetivo, la demo, la técnica decidida y lo pendiente.
   **Leerlo entero antes de empezar.**
 - `docs/contratos.md` — los Contratos entre Cajas.
+- `README.md` — el estado de cada parte y cómo está hecha.
 - `demo/mundi.html` — la fuente de la demo publicada (enlace en `docs/contexto.md`).
 - `DEUDA_TECNICA.md` — errores no críticos anotados.
 
@@ -124,6 +131,16 @@ los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir 
 
 La BD: Vicente ejecuta la migración en el SQL Editor de Supabase y después el bloque de `setup/pruebas/bd.md`, que lo
 deshace todo al terminar; tiene que salir todo PASA.
+
+Vista previa local: configuración `mundi` de `C:\Dev\.claude\launch.json` (puerto 8126, http://localhost:8126/).
+Gate mínimo antes de commitear:
+
+```powershell
+node --check fotos.js; node --check sw.js; node --test
+```
+
+y abrir la vista previa sin errores en la consola. Lo que solo existe en el navegador (el lienzo de las fotos, el
+service worker) se prueba allí, con datos inventados.
 
 La demo es una sola página. Para verla en local hay que servirla envuelta en `<!doctype html>` con la meta viewport, a
 375 px y en escritorio, en claro y en oscuro, sin errores en la consola. Para actualizar la versión publicada, se
