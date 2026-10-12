@@ -3,6 +3,8 @@
 Mi mapamundi de viajes en el teléfono: un pincho en cada lugar donde estuve, con sus fotos y su relato. Es una app
 personal, una web instalable (PWA) sin build, con los datos en Supabase.
 
+Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
+
 ## Estado
 
 | Parte | Estado |
@@ -11,7 +13,7 @@ personal, una web instalable (PWA) sin build, con los datos en Supabase.
 | Fotos: reducirlas y quitarles el GPS antes de subirlas | Hecha |
 | Cáscara PWA: instalación e icono | Hecha |
 | Mapa: países, pinchos agrupados, zoom y toques | Hecho |
-| Interfaz: entrar, Mis viajes, añadir y editar con fotos, borrar, perfil | Hecha (falta publicarla) |
+| Interfaz: entrar, Mis viajes, añadir y editar con fotos, borrar, perfil | Hecha |
 
 ## Cómo está hecha
 

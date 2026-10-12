@@ -73,7 +73,8 @@ Vicente: «soy solo yo, y sigo lo que recomiendas y propones».
 ## 6. Estado y pendiente
 
 - **12/10:** BD hecha y ejecutada en Supabase (`mundi_bd` = PASA, acceso solo para Vicente); lote de Fotos, Cáscara
-  PWA y Documentación hecho; Mapa e Interfaz hechos. Falta publicarla (con su orden). El estado de cada parte está
-  en `README.md`.
+  PWA y Documentación hecho; Mapa e Interfaz hechos. Revisión final de GPT: tres vueltas, tres defectos de
+  guardado y borrado arreglados y «CAJA APROBADA» sobre `04e1456`. **Publicada** el 12/10 en
+  https://pvicen.github.io/mundi/ (repositorio público `Pvicen/mundi`). El estado de cada parte está en `README.md`.
 - Pendiente de Vicente: verificar cada Caja al terminarla y ejecutar el SQL en Supabase. Lo que tenga que pegar se
   le da completo y ya rellenado.
