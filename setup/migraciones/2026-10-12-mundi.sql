@@ -16,7 +16,7 @@ create table if not exists public.mundi_personas (
 
 insert into public.mundi_personas (correo)
 select v.correo from (values (lower('TU_CORREO@ejemplo.com'))) as v(correo)
-where v.correo <> 'tu_correo@ejemplo.com'
+where v.correo not like '%@ejemplo.com'
 on conflict (correo) do nothing;
 
 -- Freno: si nadie de la lista tiene cuenta, no se sigue (se deshace todo)
