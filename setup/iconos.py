@@ -1,4 +1,5 @@
-# Dibuja los iconos de Mundi (icons/): un globo con un pincho rojo sobre el azul tinta de la app.
+# Dibuja los iconos de Mundi (icons/), diseño «Mapa de papel»: un globo verde agua con cuadrícula sepia y un pincho
+# rojo lacre sobre papel.
 # Se dibuja a 1024 px y se reduce, para que los bordes salgan suaves. Todo cabe en el círculo seguro del 80 %, así que
 # el mismo dibujo sirve de icono normal y de «maskable» (Android lo recorta a su forma).
 # Uso, desde la raíz del repo: py -3 setup/iconos.py   (necesita Pillow)
@@ -6,17 +7,18 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-TINTA = (15, 42, 58)
-MAR = (204, 224, 233)
-LINEA = (169, 190, 199)
-PINCHO = (224, 53, 43)
+PAPEL = (243, 234, 215)
+MAR = (207, 220, 207)
+LINEA = (165, 140, 104)
+BORDE = (138, 110, 75)
+PINCHO = (178, 58, 43)
 BLANCO = (255, 255, 255)
 
 L = 1024
 
 
 def dibujar():
-    img = Image.new("RGB", (L, L), TINTA)
+    img = Image.new("RGB", (L, L), PAPEL)
     d = ImageDraw.Draw(img)
 
     # El globo y su cuadrícula (meridianos como elipses, paralelos como líneas), recortados al círculo
@@ -24,13 +26,14 @@ def dibujar():
     globo = Image.new("RGB", (L, L), MAR)
     g = ImageDraw.Draw(globo)
     for ancho in (300, 180, 60):
-        g.ellipse([cx - ancho, cy - r, cx + ancho, cy + r], outline=LINEA, width=14)
-    g.line([cx, cy - r, cx, cy + r], fill=LINEA, width=14)
+        g.ellipse([cx - ancho, cy - r, cx + ancho, cy + r], outline=LINEA, width=10)
+    g.line([cx, cy - r, cx, cy + r], fill=LINEA, width=10)
     for dy in (-180, -60, 60, 180):
-        g.line([cx - r, cy + dy, cx + r, cy + dy], fill=LINEA, width=14)
+        g.line([cx - r, cy + dy, cx + r, cy + dy], fill=LINEA, width=10)
     mascara = Image.new("L", (L, L), 0)
     ImageDraw.Draw(mascara).ellipse([cx - r, cy - r, cx + r, cy + r], fill=255)
     img.paste(globo, (0, 0), mascara)
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=BORDE, width=16)
 
     # El pincho: cabeza redonda, punta clavada en el globo y un brillo blanco
     px, py, pr = 600, 380, 130

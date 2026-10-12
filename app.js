@@ -333,7 +333,7 @@ async function abrirLugar(p) {
   abierto = p;
   $("#lugar-titulo").textContent = p.nombre;
   const meta = $("#lugar-meta");
-  meta.replaceChildren(el("span", null, `${bandera(p.pais)} ${nombrePais(p.pais)}`.trim()));
+  meta.replaceChildren(el("span", "sello", `${bandera(p.pais)} ${nombrePais(p.pais)}`.trim()));
   if (p.fecha) meta.append(el("span", null, textoFecha(p.fecha)));
   meta.append(el("span", "coords", coordenadas(p.lat, p.lon)));
   $("#lugar-relato").textContent = p.relato || "";
