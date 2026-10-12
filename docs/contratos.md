@@ -62,7 +62,7 @@ Ficheros: `manifest.webmanifest`, `sw.js` e `icons/` (`icono-192.png`, `icono-51
 
 - `index.html` enlaza el manifiesto (`<link rel="manifest" href="manifest.webmanifest">`) y el icono de iPhone
   (`<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">`), y registra `./sw.js`.
-- `sw.js` guarda la cáscara propia (`ASSETS`: `./`, `index.html`, `style.css`, `app.js`, `mapa.js`, `fotos.js`,
+- `sw.js` guarda la cáscara propia (`ASSETS`: `./`, `index.html`, `style.css`, `app.js`, `mapa.js`, `fotos.js`, `copia.js`,
   `config.js`, el manifiesto y los iconos) y lo que se pida a los CDN (`cdn.jsdelivr.net`, `cdnjs.cloudflare.com`) y a
   Google Fonts. Red primero y caché de respaldo, para que funcione sin conexión.
 - **Nunca toca lo que va a Supabase** (datos ni fotos): siempre va directo a la red.
@@ -117,3 +117,33 @@ Ficheros: `index.html`, `app.js`, `style.css` y `config.js`. Usa los Contratos B
 - **Datos de ejemplo:** en `localhost` con `?ejemplo`, `datos` es `crearDatosEjemplo()` de
   `setup/pruebas/datos-ejemplo.js`: pinchos inventados en memoria, sin Supabase. Fuera de `localhost`, `?ejemplo` no
   hace nada.
+
+## Copia — el archivo de la copia de seguridad
+
+Fichero: `copia.js` (módulo ES, sin dependencias). Prueba: `setup/pruebas/copia.test.mjs`.
+
+- `crc32(bytes)` → el CRC-32 (sin signo) de un `Uint8Array`.
+- `crearZip(archivos, fecha = new Date())` → `Uint8Array`: un ZIP sin comprimir (método «store»; las fotos ya son
+  JPEG y comprimirlas no ahorra nada), con los nombres en UTF-8. Cada archivo es `{ nombre, datos }`, con `datos`
+  como `Uint8Array` o texto.
+- `nombreSeguro(texto)` → el texto apto para un nombre de carpeta o de archivo: sin `/ \ : * ? " < > |` ni
+  caracteres de control, sin espacios ni puntos en los extremos, 60 caracteres como mucho y `lugar` si queda vacío.
+
+**La copia que descarga la Interfaz** (`mundi-copia-AAAA-MM-DD.zip`):
+
+- `lugares.json`: `{ "version": 1, "exportado": "<fecha ISO>", "lugares": [...] }`. Cada lugar lleva `id`, `nombre`,
+  `pais`, `lat`, `lon`, `fecha`, `relato`, `creado_en` y `fotos`: las rutas de sus fotos dentro del ZIP.
+- `fotos/<NNN>-<nombre del lugar>/<k>.jpg`: las fotos de cada lugar, en orden (`NNN`, el número del lugar, con tres
+  cifras).
+- `LEEME.txt`: qué es la copia y cómo está organizada.
+
+## Interfaz — filtro por año y copia (añadido)
+
+- **Filtro por año:** una fila de botones sobre el mapa: «Todos», los años con lugares (del más reciente al más
+  antiguo) y «Sin fecha» si hay lugares sin fecha. Solo aparece si hay al menos dos opciones además de «Todos».
+  Al elegir uno, el mapa pinta solo esos pinchos (`mapa.pintar`) y se encuadra en ellos, y el contador de la
+  cabecera cuenta solo esos. El perfil siempre cuenta todo. Si se guarda un lugar que el filtro dejaría fuera, el
+  filtro vuelve a «Todos».
+- **Copia de seguridad:** botón «Descargar copia» en el perfil. Descarga las fotos con `datos.urlsFirmadas`, arma
+  el ZIP con `crearZip` y lo descarga. Si alguna foto no se puede bajar, la copia sale igual y avisa de cuántas
+  faltan.

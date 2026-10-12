@@ -97,6 +97,7 @@ Orden aprobado: BD → lote de Fotos, Cáscara PWA y Documentación → Mapa →
 | Documentación | lote | `README.md` y `_config.yml` (lo que no se publica en Pages) | — |
 | Mapa | crítica | `mapa.js`, su prueba `setup/pruebas/mapa.test.mjs` y la página `setup/pruebas/mapa.html` | «Mapa» |
 | Interfaz | crítica | `index.html`, `app.js`, `style.css`, `config.js` y los datos de ejemplo `setup/pruebas/datos-ejemplo.js` | «Interfaz» |
+| Copia | lote | `copia.js` (el ZIP de la copia) y su prueba `setup/pruebas/copia.test.mjs` | «Copia» |
 
 **Lotes (C.C.D. §6):** son críticas toda migración o cambio de RLS o del almacén, el mapa y lo que toque la sesión o
 los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir en lote.
@@ -141,7 +142,7 @@ Vista previa local: configuración `mundi` de `C:\Dev\.claude\launch.json` (puer
 Gate mínimo antes de commitear:
 
 ```powershell
-node --check app.js; node --check config.js; node --check fotos.js; node --check mapa.js; node --check sw.js; node --test
+node --check app.js; node --check config.js; node --check copia.js; node --check fotos.js; node --check mapa.js; node --check sw.js; node --test
 ```
 
 y abrir la vista previa sin errores en la consola. Lo que solo existe en el navegador (el lienzo de las fotos, el
