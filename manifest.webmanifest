@@ -1,0 +1,16 @@
+{
+  "name": "Mundi",
+  "short_name": "Mundi",
+  "description": "Mi mapamundi de viajes: un pincho en cada lugar donde estuve, con sus fotos",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#E4ECEF",
+  "theme_color": "#E4ECEF",
+  "icons": [
+    { "src": "icons/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
