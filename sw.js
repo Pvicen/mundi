@@ -3,7 +3,7 @@
 // Lo que va a Supabase (datos y fotos) no se toca nunca: va siempre directo a la red.
 //
 // Convenio: sube el número de CACHE («mundi-v2», …) si cambias un fichero de ASSETS o una URL de CDN.
-const CACHE = "mundi-v1";
+const CACHE = "mundi-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -11,6 +11,7 @@ const ASSETS = [
   "./app.js",
   "./mapa.js",
   "./fotos.js",
+  "./copia.js",
   "./config.js",
   "./manifest.webmanifest",
   "./icons/icono-192.png",

@@ -70,6 +70,7 @@
 
   <main class="zona-mapa">
     <div id="mapa" class="mapa"></div>
+    <div class="filtro-anio" id="filtro-anio" role="group" aria-label="Ver los lugares de un año" hidden></div>
     <div class="sin-mapa" id="sin-mapa" hidden>
       <p id="sin-mapa-texto"></p>
       <button class="boton-suave" id="sin-mapa-reintentar" type="button">Reintentar</button>
@@ -181,6 +182,10 @@
       <div class="lista" id="perfil-paises"></div>
       <h3 class="subtitulo">Lugares</h3>
       <div class="lista" id="perfil-lugares"></div>
+      <h3 class="subtitulo">Copia de seguridad</h3>
+      <p class="suave">Un archivo .zip con todos tus lugares y sus fotos, para guardarlo donde quieras.</p>
+      <button class="boton-suave" id="descargar-copia" type="button">Descargar copia</button>
+      <p class="suave" id="copia-estado" aria-live="polite" hidden></p>
       <button class="boton-suave" id="salir" type="button">Salir</button>
     </div>
   </section>

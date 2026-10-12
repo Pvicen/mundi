@@ -4,6 +4,7 @@
 import { SUPABASE_URL, SUPABASE_CLAVE } from "./config.js";
 import { crearMapa } from "./mapa.js";
 import { prepararFoto } from "./fotos.js";
+import { crearZip, nombreSeguro } from "./copia.js";
 
 const ALMACEN = "mundi-fotos";
 const COLUMNAS = "id, nombre, pais, lat, lon, fecha, relato, fotos, creado_en";
@@ -160,6 +161,7 @@ let abierto = null; // el pincho de la ficha
 let elegirEnMapa = false;
 let form = null; // el formulario abierto: { editando, donde, existentes, quitadas, nuevas, guardando }
 let turnoFotos = 0;
+let filtro = "todos"; // "todos", un año ("2025") o "sin-fecha"
 const urls = new Map(); // ruta → { url, hasta }
 
 /* ---------- Pantallas ---------- */
@@ -257,12 +259,37 @@ async function cargarPinchos() {
   }
 }
 
+/* ---------- Filtro por año ---------- */
+const anioDe = (p) => (p.fecha ? p.fecha.slice(0, 4) : "sin-fecha");
+const visibles = () => (filtro === "todos" ? pinchos : pinchos.filter((p) => anioDe(p) === filtro));
+
+function pintarFiltro() {
+  const anios = [...new Set(pinchos.filter((p) => p.fecha).map(anioDe))].sort().reverse();
+  const opciones = pinchos.some((p) => !p.fecha) ? [...anios, "sin-fecha"] : anios;
+  if (filtro !== "todos" && !opciones.includes(filtro)) filtro = "todos";
+  const barra = $("#filtro-anio");
+  barra.hidden = opciones.length < 2;
+  barra.replaceChildren(...["todos", ...opciones].map((valor) => {
+    const boton = el("button", null, valor === "todos" ? "Todos" : valor === "sin-fecha" ? "Sin fecha" : valor);
+    boton.type = "button";
+    boton.setAttribute("aria-pressed", String(valor === filtro));
+    boton.addEventListener("click", () => {
+      filtro = valor;
+      pintar();
+      mapa?.encuadrar();
+    });
+    return boton;
+  }));
+}
+
 function pintar(resaltar = null) {
-  mapa?.pintar(pinchos, { resaltar });
-  const paises = new Set(pinchos.map((p) => p.pais).filter(Boolean)).size;
+  pintarFiltro();
+  const lista = visibles();
+  mapa?.pintar(lista, { resaltar });
+  const paises = new Set(lista.map((p) => p.pais).filter(Boolean)).size;
   $("#cifras").replaceChildren(
     el("b", null, String(paises)), ` ${paises === 1 ? "país" : "países"} · `,
-    el("b", null, String(pinchos.length)), ` ${pinchos.length === 1 ? "lugar" : "lugares"}`
+    el("b", null, String(lista.length)), ` ${lista.length === 1 ? "lugar" : "lugares"}`
   );
   $("#vacio").hidden = pinchos.length > 0;
 }
@@ -686,6 +713,7 @@ async function guardar(e) {
     }
     form.guardando = false;
     cerrarHojas();
+    if (filtro !== "todos" && anioDe(p) !== filtro) filtro = "todos"; // que se vea lo recién guardado
     pintar(eraNuevo ? p.id : null);
     mapa?.irA(p.lat, p.lon);
     avisar(eraNuevo ? "Pincho clavado." : "Cambios guardados.");
@@ -744,12 +772,80 @@ function abrirPerfil() {
   abrirHoja("hoja-perfil");
 }
 
+/* ---------- Copia de seguridad ---------- */
+const LEEME = `Copia de seguridad de Mundi
+
+- lugares.json: todos tus lugares (nombre, país, coordenadas, fecha, relato) y, en «fotos», las rutas de sus fotos
+  dentro de esta copia.
+- fotos/: una carpeta por lugar, con sus fotos en orden.
+
+Las fotos están reducidas y sin la ubicación GPS de la cámara, igual que en la app.
+`;
+
+async function descargarCopia() {
+  const boton = $("#descargar-copia");
+  const estado = $("#copia-estado");
+  const poner = (texto) => {
+    estado.textContent = texto ?? "";
+    estado.hidden = !texto;
+  };
+  boton.disabled = true;
+  try {
+    const total = pinchos.reduce((s, p) => s + (p.fotos?.length ?? 0), 0);
+    const archivos = [];
+    const lugares = [];
+    let hechas = 0;
+    let fallos = 0;
+    for (const [i, p] of pinchos.entries()) {
+      const carpeta = `fotos/${String(i + 1).padStart(3, "0")}-${nombreSeguro(p.nombre)}`;
+      const enlaces = p.fotos?.length ? await firmar(p.fotos) : {};
+      const rutas = [];
+      for (const [k, ruta] of (p.fotos ?? []).entries()) {
+        poner(`Preparando la copia: foto ${++hechas} de ${total}…`);
+        try {
+          if (!enlaces[ruta]) throw new Error("sin enlace");
+          const respuesta = await fetch(enlaces[ruta]);
+          if (!respuesta.ok) throw new Error(String(respuesta.status));
+          const nombre = `${carpeta}/${k + 1}.jpg`;
+          archivos.push({ nombre, datos: new Uint8Array(await respuesta.arrayBuffer()) });
+          rutas.push(nombre);
+        } catch {
+          fallos++;
+        }
+      }
+      lugares.push({
+        id: p.id, nombre: p.nombre, pais: p.pais, lat: p.lat, lon: p.lon, fecha: p.fecha,
+        relato: p.relato, creado_en: p.creado_en, fotos: rutas,
+      });
+    }
+    const ahora = new Date();
+    const json = JSON.stringify({ version: 1, exportado: ahora.toISOString(), lugares }, null, 2);
+    const zip = crearZip([{ nombre: "lugares.json", datos: json }, { nombre: "LEEME.txt", datos: LEEME }, ...archivos], ahora);
+    const enlace = el("a");
+    enlace.href = URL.createObjectURL(new Blob([zip], { type: "application/zip" }));
+    const dia = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
+    enlace.download = `mundi-copia-${dia}.zip`;
+    document.body.append(enlace);
+    enlace.click();
+    enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(enlace.href), 60000);
+    poner(fallos
+      ? `Copia descargada, pero ${fallos} ${fallos === 1 ? "foto no se pudo" : "fotos no se pudieron"} incluir. Vuelve a intentarlo con buena conexión.`
+      : `Copia descargada: ${lugares.length} ${lugares.length === 1 ? "lugar" : "lugares"} y ${archivos.length} ${archivos.length === 1 ? "foto" : "fotos"}.`);
+  } catch (e) {
+    poner("No se pudo preparar la copia: " + e.message);
+  } finally {
+    boton.disabled = false;
+  }
+}
+
 /* ---------- Eventos ---------- */
 function ponerEventos() {
   $("#form-entrar").addEventListener("submit", entrar);
   $("#carga-reintentar").addEventListener("click", abrirApp);
   $("#sin-acceso-salir").addEventListener("click", salir);
   $("#salir").addEventListener("click", salir);
+  $("#descargar-copia").addEventListener("click", descargarCopia);
   $("#abrir-perfil").addEventListener("click", abrirPerfil);
   $("#encuadrar").addEventListener("click", () => mapa?.encuadrar());
   $("#abrir-nuevo").addEventListener("click", () => abrirForm());

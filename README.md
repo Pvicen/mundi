@@ -14,6 +14,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | Cáscara PWA: instalación e icono | Hecha |
 | Mapa: países, pinchos agrupados, zoom y toques | Hecho |
 | Interfaz: entrar, Mis viajes, añadir y editar con fotos, borrar, perfil | Hecha |
+| Filtro por año y copia de seguridad (.zip con lugares y fotos) | Hecho |
 
 ## Cómo está hecha
 
@@ -34,6 +35,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | `config.js` | La URL del proyecto de Supabase y su clave publicable (públicas) |
 | `setup/pruebas/datos-ejemplo.js` | Datos inventados para probar la app en local con `?ejemplo` |
 | `fotos.js` | Prepara cada foto antes de subirla |
+| `copia.js` | Arma el .zip de la copia de seguridad (sin librerías) |
 | `mapa.js` | El mapamundi (d3 y Natural Earth a 1:50 millones); se prueba en `setup/pruebas/mapa.html` |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Lo que permite instalarla y abrirla sin conexión |
 | `setup/iconos.py` | Dibuja los iconos (`py -3 setup/iconos.py`, con Pillow) |
