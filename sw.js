@@ -40,10 +40,13 @@ self.addEventListener("install", (e) => {
   );
 });
 
+// Mundi comparte origen (pvicen.github.io) con la App de avisos: solo se borran las cachés viejas de Mundi
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
-      .then((claves) => Promise.all(claves.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((claves) => Promise.all(
+        claves.filter((k) => k.startsWith("mundi-") && k !== CACHE).map((k) => caches.delete(k))
+      ))
       .then(() => self.clients.claim())
   );
 });
