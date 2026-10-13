@@ -4,7 +4,7 @@ El único puente entre Cajas (método C.C.D. §2): cada Caja se programa leyendo
 
 ## BD — los datos en Supabase
 
-Migración: `setup/migraciones/2026-10-12-mundi.sql`. Prueba: `setup/pruebas/bd.md`.
+Migraciones: `setup/migraciones/2026-10-12-mundi.sql` y `2026-10-13-forma.sql` (en orden). Prueba: `setup/pruebas/bd.md`.
 Proyecto de Supabase: el mismo de la App de avisos. Todo lo de Mundi lleva el prefijo `mundi` y no toca nada suyo.
 
 ### Tabla `mundi_pinchos` (un pincho = un lugar donde estuvo)
@@ -19,6 +19,7 @@ Proyecto de Supabase: el mismo de la App de avisos. Todo lo de Mundi lleva el pr
 | `fecha` | date o null | Día del viaje; si solo se sabe el mes, el día 1 |
 | `relato` | text | `''` por defecto; hasta 4000 caracteres |
 | `fotos` | text[] | `{}` por defecto; hasta 30 rutas del almacén `mundi-fotos`, en orden (la primera es la portada) |
+| `forma` | jsonb o null | El contorno real del lugar (ciudad, isla…) en GeoJSON: `Polygon` o `MultiPolygon`, coordenadas `[lon, lat]`, hasta 100 KB. Null si no se conoce: el mapa pinta una mancha. Migración `setup/migraciones/2026-10-13-forma.sql` |
 | `creado_en` | timestamptz | Lo pone la base |
 
 ### Almacén `mundi-fotos`
