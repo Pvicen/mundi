@@ -3,7 +3,7 @@
 // Se ejecutan con `node --test` desde la raíz del repo.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { medidasDestino, prepararFoto, LADO_MAXIMO } from "../../fotos.js";
+import { medidasDestino, prepararFoto, LADO_MAXIMO, LADO_MINIATURA } from "../../fotos.js";
 
 test("el lado mayor se queda en 1600 y se conserva la proporción", () => {
   assert.equal(LADO_MAXIMO, 1600);
@@ -24,8 +24,10 @@ test("las medidas son enteras y nunca bajan de 1 px", () => {
   assert.deepEqual(medidasDestino(20000, 10), { ancho: 1600, alto: 1 });
 });
 
-test("otro máximo", () => {
+test("otro máximo y el de la miniatura", () => {
   assert.deepEqual(medidasDestino(1000, 500, 400), { ancho: 400, alto: 200 });
+  assert.equal(LADO_MINIATURA, 240);
+  assert.deepEqual(medidasDestino(1600, 1200, LADO_MINIATURA), { ancho: 240, alto: 180 });
 });
 
 test("medidas no válidas", () => {

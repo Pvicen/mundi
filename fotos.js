@@ -4,6 +4,7 @@
 // abrirla.
 
 export const LADO_MAXIMO = 1600;
+export const LADO_MINIATURA = 240; // la copia pequeña para el mapa
 export const CALIDAD = 0.82;
 const CALIDAD_REDUCIDA = 0.6;
 const LIMITE = 5 * 1024 * 1024; // el del almacén mundi-fotos
@@ -44,10 +45,10 @@ function aJpeg(lienzo, calidad) {
   });
 }
 
-export async function prepararFoto(archivo) {
+export async function prepararFoto(archivo, lado = LADO_MAXIMO) {
   if (!(archivo instanceof Blob)) throw new TypeError("prepararFoto espera el archivo de una foto");
   const imagen = await abrir(archivo);
-  const { ancho, alto } = medidasDestino(imagen.naturalWidth, imagen.naturalHeight);
+  const { ancho, alto } = medidasDestino(imagen.naturalWidth, imagen.naturalHeight, lado);
 
   const lienzo = document.createElement("canvas");
   lienzo.width = ancho;

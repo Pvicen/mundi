@@ -49,10 +49,10 @@ Proyecto de Supabase: el mismo de la App de avisos. Todo lo de Mundi lleva el pr
 
 Fichero: `fotos.js` (módulo ES, sin dependencias). Prueba: `setup/pruebas/fotos.test.mjs`.
 
-- `prepararFoto(archivo)` → `Promise<Blob>`. `archivo` es el `File` que da `<input type="file" accept="image/*">`.
+- `prepararFoto(archivo, lado = 1600)` → `Promise<Blob>`. `archivo` es el `File` que da `<input type="file" accept="image/*">`.
   Devuelve un JPEG (`image/jpeg`) con el lado mayor de 1600 px como mucho (nunca amplía), la orientación correcta y
   **sin metadatos**: ni EXIF ni GPS, porque se redibuja en un lienzo y solo se guardan los píxeles. Pesa menos de
-  5 MB, el límite del almacén.
+  5 MB, el límite del almacén. Con `lado = LADO_MINIATURA` (240) sale la miniatura del mapa.
 - Si no puede abrir la foto, la promesa se rechaza con un `Error` cuyo mensaje se puede enseñar tal cual.
 - `medidasDestino(ancho, alto, maximo = 1600)` → `{ ancho, alto }`: las medidas finales, enteras y con la misma
   proporción.
