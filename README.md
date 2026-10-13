@@ -16,6 +16,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | Interfaz: entrar, Mis viajes, añadir y editar con fotos, borrar, perfil | Hecha |
 | Filtro por año y copia de seguridad (.zip con lugares y fotos) | Hecho |
 | Diseño «Mapa de papel» (papel, sepia, ocre y rojo lacre; Fraunces y Outfit; versión oscura) | Hecho |
+| El lugar en vez del país (contorno real de OpenStreetMap o mancha) y fotos en el mapa como polaroids | Hecho |
 
 ## Cómo está hecha
 

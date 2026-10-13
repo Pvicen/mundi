@@ -17,6 +17,13 @@ function comprobarFila(p) {
   if (p.fecha !== null && !/^\d{4}-\d{2}-\d{2}$/.test(p.fecha)) throw new Error("invalid input syntax for type date");
   if (typeof p.relato !== "string" || p.relato.length > 4000) throw new Error('violates check constraint "mundi_pinchos_relato_check"');
   if (!Array.isArray(p.fotos) || p.fotos.length > 30) throw new Error('violates check constraint "mundi_pinchos_fotos_check"');
+  if (p.forma !== null && !(typeof p.forma === "object" && ["Polygon", "MultiPolygon"].includes(p.forma.type)
+    && Array.isArray(p.forma.coordinates) && JSON.stringify(p.forma).length <= 100000)) {
+    throw new Error('violates check constraint "mundi_pinchos_forma_check"');
+  }
+  if (p.miniatura !== null && !(p.miniatura.length <= 300 && p.miniatura.startsWith(p.dueno + "/"))) {
+    throw new Error('violates check constraint "mundi_pinchos_miniatura_check"');
+  }
 }
 
 export function crearDatosEjemplo() {
@@ -31,7 +38,7 @@ export function crearDatosEjemplo() {
     { nombre: "Santorini", pais: "GR", lat: 36.3932, lon: 25.4615, fecha: "2026-06-01", relato: "Atardecer en Oia.\nCalor." },
     { nombre: "Santiago", pais: "CL", lat: -33.4489, lon: -70.6693, fecha: null, relato: "Casa." },
   ].map((p, i) => ({
-    id: `00000000-0000-4000-8000-00000000010${i}`, dueno: yo.id, fotos: [], creado_en: `2026-01-0${i + 1}T10:00:00Z`, ...p,
+    id: `00000000-0000-4000-8000-00000000010${i}`, dueno: yo.id, fotos: [], forma: null, miniatura: null, creado_en: `2026-01-0${i + 1}T10:00:00Z`, ...p,
   }));
   const copia = (p) => ({ ...p, fotos: [...p.fotos] });
 
@@ -59,7 +66,7 @@ export function crearDatosEjemplo() {
     },
     async crear(fila) {
       await espera();
-      const p = { id: crypto.randomUUID(), dueno: yo.id, fecha: null, relato: "", fotos: [], ...fila,
+      const p = { id: crypto.randomUUID(), dueno: yo.id, fecha: null, relato: "", fotos: [], forma: null, miniatura: null, ...fila,
         creado_en: new Date().toISOString() };
       comprobarFila(p);
       pinchos.push(p);

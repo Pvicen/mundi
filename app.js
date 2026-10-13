@@ -3,11 +3,12 @@
 // textContent (nada de innerHTML con datos).
 import { SUPABASE_URL, SUPABASE_CLAVE } from "./config.js";
 import { crearMapa } from "./mapa.js";
-import { prepararFoto } from "./fotos.js";
+import { prepararFoto, LADO_MINIATURA } from "./fotos.js";
 import { crearZip, nombreSeguro } from "./copia.js";
 
 const ALMACEN = "mundi-fotos";
-const COLUMNAS = "id, nombre, pais, lat, lon, fecha, relato, fotos, creado_en";
+const COLUMNAS = "id, nombre, pais, lat, lon, fecha, relato, fotos, forma, miniatura, creado_en";
+const MAX_FORMA = 60000; // caracteres del contorno que se guarda (la base admite 100 KB)
 const MAX_FOTOS = 30;
 const SEGUNDOS_URL = 3600;
 const TOTAL_PAISES = 195;
@@ -285,13 +286,60 @@ function pintarFiltro() {
 function pintar(resaltar = null) {
   pintarFiltro();
   const lista = visibles();
-  mapa?.pintar(lista, { resaltar });
+  mapa?.pintar(lista.map((p) => ({ ...p, portada: portadaDe(p) })), { resaltar });
+  firmarPortadas();
   const paises = new Set(lista.map((p) => p.pais).filter(Boolean)).size;
   $("#cifras").replaceChildren(
     el("b", null, String(paises)), ` ${paises === 1 ? "país" : "países"} · `,
     el("b", null, String(lista.length)), ` ${lista.length === 1 ? "lugar" : "lugares"}`
   );
   $("#vacio").hidden = pinchos.length > 0;
+}
+
+/* ---------- Portadas del mapa (polaroids) ---------- */
+const rutaPortada = (p) => p.miniatura || p.fotos?.[0] || null;
+function portadaDe(p) {
+  const enlace = urls.get(rutaPortada(p));
+  return enlace && enlace.hasta > Date.now() ? enlace.url : null;
+}
+
+const intentosPortada = new Map(); // ruta → cuándo se pidió su enlace (no se repite antes de 5 min)
+async function firmarPortadas() {
+  const ahora = Date.now();
+  const faltan = [...new Set(pinchos.map(rutaPortada))].filter((r) =>
+    r && !(urls.get(r)?.hasta > ahora) && !(intentosPortada.get(r) > ahora - 300000));
+  if (!faltan.length) return;
+  for (const r of faltan) intentosPortada.set(r, ahora);
+  await firmar(faltan);
+  pintar();
+}
+
+/* ---------- Contorno del lugar ---------- */
+// Solo polígonos, con 4 decimales (unos 11 m) y hasta MAX_FORMA caracteres; si no, null (el mapa pinta una mancha)
+function normalizarForma(geo) {
+  if (!geo || (geo.type !== "Polygon" && geo.type !== "MultiPolygon") || !Array.isArray(geo.coordinates)) return null;
+  const redondearTodo = (c) => (typeof c === "number" ? Math.round(c * 1e4) / 1e4 : c.map(redondearTodo));
+  const forma = { type: geo.type, coordinates: redondearTodo(geo.coordinates) };
+  return JSON.stringify(forma).length <= MAX_FORMA ? forma : null;
+}
+
+// El lugar de un punto (su ciudad o pueblo) según Nominatim: { nombre, forma }, o null si no responde
+async function lugarEn(lat, lon) {
+  try {
+    const url = new URL(NOMINATIM + "/reverse");
+    url.search = new URLSearchParams({
+      lat, lon, format: "jsonv2", zoom: "10", polygon_geojson: "1", polygon_threshold: "0.001", "accept-language": "es",
+    });
+    const respuesta = await fetch(url);
+    if (!respuesta.ok) return null;
+    const d = await respuesta.json();
+    if (d.error) return { nombre: null, forma: null }; // en el mar: sin lugar
+    const a = d.address ?? {};
+    const nombre = a.city || a.town || a.village || a.municipality || a.county || a.state || d.name || null;
+    return { nombre, forma: normalizarForma(d.geojson) };
+  } catch {
+    return null;
+  }
 }
 
 /* ---------- Hojas ---------- */
@@ -400,7 +448,7 @@ function abrirForm(p = null) {
   descartarForm();
   form = {
     editando: p,
-    donde: p ? { lat: p.lat, lon: p.lon, pais: p.pais } : null,
+    donde: p ? { lat: p.lat, lon: p.lon, pais: p.pais, forma: p.forma ?? undefined } : null,
     existentes: p ? [...(p.fotos ?? [])] : [],
     quitadas: [],
     nuevas: [],
@@ -456,9 +504,13 @@ function pintarDonde() {
   $("#donde-coords").textContent = coordenadas(d.lat, d.lon);
 }
 
-function elegirLugar(lat, lon, pais, nombre) {
+// forma: el contorno si ya se sabe (o null si no tiene); sin él, se pide después (completarLugar o al guardar)
+function elegirLugar(lat, lon, pais, nombre, forma = undefined) {
   if (!form || form.guardando) return;
-  form.donde = { lat: redondear(lat), lon: redondear(lon), pais: pais ?? null };
+  form.donde = {
+    lat: redondear(lat), lon: redondear(lon), pais: pais ?? null,
+    forma: forma === undefined ? undefined : normalizarForma(forma),
+  };
   if (nombre && !$("#campo-nombre").value.trim()) $("#campo-nombre").value = nombre;
   $("#sugerencias").hidden = true;
   mapa?.marcarPunto(form.donde.lat, form.donde.lon);
@@ -476,6 +528,7 @@ async function buscar() {
     const url = new URL(NOMINATIM + "/search");
     url.search = new URLSearchParams({
       q: texto, format: "jsonv2", limit: "6", addressdetails: "1", "accept-language": "es",
+      polygon_geojson: "1", polygon_threshold: "0.001",
     });
     const respuesta = await fetch(url);
     if (!respuesta.ok) throw new Error(String(respuesta.status));
@@ -495,7 +548,7 @@ async function buscar() {
       const boton = el("button");
       boton.type = "button";
       boton.append(el("span", null, nombre), el("small", null, d.display_name ?? ""));
-      boton.addEventListener("click", () => elegirLugar(lat, lon, pais, nombre));
+      boton.addEventListener("click", () => elegirLugar(lat, lon, pais, nombre, d.geojson ?? null));
       caja.append(boton);
     }
   } catch {
@@ -503,22 +556,14 @@ async function buscar() {
   }
 }
 
-// Nombre para un punto elegido en el mapa o con «Estoy aquí» (si el campo sigue vacío)
-async function sugerirNombre(lat, lon) {
-  try {
-    const url = new URL(NOMINATIM + "/reverse");
-    url.search = new URLSearchParams({ lat, lon, format: "jsonv2", zoom: "10", "accept-language": "es" });
-    const respuesta = await fetch(url);
-    if (!respuesta.ok) return;
-    const d = await respuesta.json();
-    const a = d.address ?? {};
-    const nombre = a.city || a.town || a.village || a.municipality || a.county || a.state || d.name;
-    if (nombre && form?.donde && !$("#campo-nombre").value.trim()) {
-      $("#campo-nombre").value = String(nombre).slice(0, 80);
-      validarForm();
-    }
-  } catch {
-    // sin nombre sugerido: se escribe a mano
+// Para un punto elegido en el mapa o con «Estoy aquí»: su contorno y, si el campo sigue vacío, su nombre
+async function completarLugar(lat, lon) {
+  const lugar = await lugarEn(lat, lon);
+  if (!lugar || !form?.donde || form.donde.lat !== lat || form.donde.lon !== lon) return;
+  if (form.donde.forma === undefined) form.donde.forma = lugar.forma;
+  if (lugar.nombre && !$("#campo-nombre").value.trim()) {
+    $("#campo-nombre").value = String(lugar.nombre).slice(0, 80);
+    validarForm();
   }
 }
 
@@ -541,7 +586,7 @@ function tocarPunto({ lat, lon, pais }) {
   $("#aviso-elegir").hidden = true;
   elegirLugar(lat, lon, pais, null);
   abrirHoja("hoja-form");
-  if (!$("#campo-nombre").value.trim()) sugerirNombre(form.donde.lat, form.donde.lon);
+  completarLugar(form.donde.lat, form.donde.lon);
 }
 
 function estoyAqui() {
@@ -561,7 +606,7 @@ function estoyAqui() {
       terminar();
       const { latitude: lat, longitude: lon } = pos.coords;
       elegirLugar(lat, lon, mapa?.paisEn(lat, lon) ?? null, null);
-      if (!$("#campo-nombre").value.trim()) sugerirNombre(form.donde.lat, form.donde.lon);
+      completarLugar(form.donde.lat, form.donde.lon);
     },
     (err) => {
       terminar();
@@ -643,6 +688,33 @@ async function pintarFotosForm() {
   subir.hidden = form.existentes.length + form.nuevas.length >= MAX_FOTOS;
 }
 
+// La miniatura del mapa sale de la primera foto y se llama como ella: «<uid>/<id>/miniatura-<foto>.jpg». Si la primera
+// foto cambia (o no hay), se rehace (o se quita) y se borra la anterior.
+async function rehacerMiniatura(p, subidas) {
+  const primera = p.fotos?.[0] ?? null;
+  const esperada = primera ? primera.replace(/\/([^/]+)\.jpg$/, "/miniatura-$1.jpg") : null;
+  if ((p.miniatura ?? null) === esperada) return p;
+  if (esperada) {
+    let origen = subidas.get(primera);
+    if (!origen) {
+      const enlace = (await firmar([primera]))[primera];
+      const respuesta = enlace ? await fetch(enlace) : null;
+      if (!respuesta?.ok) throw new Error("no se pudo bajar la primera foto");
+      origen = await respuesta.blob();
+    }
+    const mini = await prepararFoto(origen, LADO_MINIATURA);
+    try {
+      await datos.subirFoto(esperada, mini);
+    } catch (e) {
+      if (!/exist/i.test(e.message)) throw e; // ya estaba subida de un intento anterior
+    }
+  }
+  const vieja = p.miniatura;
+  p = await datos.actualizar(p.id, { miniatura: esperada });
+  if (vieja && vieja !== esperada) await datos.quitarFotos([vieja]).catch(() => {});
+  return p;
+}
+
 async function guardar(e) {
   e.preventDefault();
   if (!form || form.guardando || form.preparando > 0) return;
@@ -651,6 +723,12 @@ async function guardar(e) {
   form.guardando = true;
   validarForm();
   ponerError(null);
+  if (form.donde.forma === undefined) {
+    // Aún no se sabe su contorno (p. ej., un lugar guardado antes de que existiera): se pide ahora
+    ponerEstado("Buscando el contorno del lugar…");
+    const lugar = await lugarEn(form.donde.lat, form.donde.lon);
+    if (lugar) form.donde.forma = lugar.forma;
+  }
   const mes = $("#campo-fecha").value;
   const campos = {
     nombre,
@@ -659,6 +737,7 @@ async function guardar(e) {
     lon: form.donde.lon,
     fecha: /^\d{4}-\d{2}$/.test(mes) ? `${mes}-01` : null,
     relato: $("#campo-relato").value.trim(),
+    ...(form.donde.forma !== undefined ? { forma: form.donde.forma } : {}),
   };
   const eraNuevo = !form.editando;
   try {
@@ -674,12 +753,14 @@ async function guardar(e) {
     }
 
     let fallos = 0;
+    const subidas = new Map(); // ruta → foto, para hacer la miniatura sin volver a bajarla
     const subir = [...form.nuevas];
     for (let i = 0; i < subir.length; i++) {
       ponerEstado(`Subiendo fotos: ${i + 1} de ${subir.length}…`);
       const ruta = `${yo.id}/${p.id}/${crypto.randomUUID()}.jpg`;
       try {
         await datos.subirFoto(ruta, subir[i].blob);
+        subidas.set(ruta, subir[i].blob);
         form.existentes.push(ruta);
         form.nuevas = form.nuevas.filter((x) => x !== subir[i]);
         URL.revokeObjectURL(subir[i].url);
@@ -698,6 +779,13 @@ async function guardar(e) {
       } catch {
         // la fila ya no las cita: quedan huérfanas en el almacén (DEUDA_TECNICA.md)
       }
+    }
+
+    try {
+      ponerEstado("Guardando…");
+      p = await rehacerMiniatura(p, subidas);
+    } catch {
+      // sin miniatura, el mapa usa la primera foto entera
     }
 
     pinchos = ordenar(pinchos.map((x) => (x.id === p.id ? p : x)));
@@ -815,7 +903,7 @@ async function descargarCopia() {
       }
       lugares.push({
         id: p.id, nombre: p.nombre, pais: p.pais, lat: p.lat, lon: p.lon, fecha: p.fecha,
-        relato: p.relato, creado_en: p.creado_en, fotos: rutas,
+        relato: p.relato, forma: p.forma ?? null, creado_en: p.creado_en, fotos: rutas,
       });
     }
     const ahora = new Date();

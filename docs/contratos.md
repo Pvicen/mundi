@@ -80,12 +80,15 @@ Necesita los globales `d3` (7.9.0) y `topojson` (3.0.2), cargados antes desde cd
   elemento con tamaño), se adapta si cambia de tamaño y empieza mostrando el mundo entero (en un teléfono en vertical,
   de alto, y se arrastra a los lados). Si no puede descargar la geometría, la promesa se rechaza con un `Error` cuyo
   mensaje se puede enseñar tal cual.
-- `mapa.pintar(pinchos, { resaltar } = {})`: pinta los pinchos y colorea los países visitados. Cada pincho es un
-  objeto con, al menos, `{ id, nombre, lat, lon, pais }` (las filas de `mundi_pinchos` valen tal cual). Sustituye lo
+- `mapa.pintar(pinchos, { resaltar } = {})`: pinta los pinchos, colorea en suave los países visitados y, en fuerte,
+  cada lugar: su `forma` (GeoJSON) o, si no tiene, una mancha de 9 km alrededor. Cada pincho es un objeto con, al
+  menos, `{ id, nombre, lat, lon, pais }` (las filas de `mundi_pinchos` valen tal cual), y puede llevar `forma` y
+  `portada` (la URL de una imagen): desde el zoom 4, un pincho con portada se dibuja como una polaroid clavada, con su
+  nombre escrito abajo (los grupos se juntan entonces a 62 px). Sustituye lo
   pintado antes. Los pinchos que en pantalla quedan cerca se agrupan en un círculo con el número; al acercar, se
   separan. `resaltar` es el `id` de un pincho que entra con animación (el recién guardado).
 - `mapa.encuadrar()`: ajusta la vista para que se vean todos los pinchos (la vista inicial si no hay).
-- `mapa.irA(lat, lon)`: se acerca a ese punto.
+- `mapa.irA(lat, lon, zoom = 6)`: se acerca a ese punto.
 - `mapa.marcarPunto(lat, lon)`: pone un pincho gris provisional (el que se está creando); `mapa.marcarPunto(null)` lo
   quita.
 - `mapa.paisEn(lat, lon)` → código ISO 3166-1 alfa-2 (`ES`) o `null` si el punto no cae en ningún país.
@@ -106,8 +109,12 @@ Ficheros: `index.html`, `app.js`, `style.css` y `config.js`. Usa los Contratos B
 - **Librerías**, con versión fijada y SRI: d3 7.9.0 y topojson 3.0.2 (cdnjs) y supabase-js 2.112.4 (jsdelivr).
 - **Sesión:** correo y contraseña de la cuenta de Supabase. Se guarda aparte de la de la App de avisos (clave
   `mundi-sesion`), y «Salir» cierra solo la de este dispositivo.
-- **Buscar un lugar y nombrar un punto:** Nominatim de OpenStreetMap, sin cuenta. Solo se le envía el texto buscado
-  (al pulsar Buscar) o las coordenadas del punto elegido.
+- **Buscar un lugar, nombrar un punto y su contorno:** Nominatim de OpenStreetMap, sin cuenta. Solo se le envía el
+  texto buscado (al pulsar Buscar) o las coordenadas del punto elegido. El contorno (`polygon_geojson`) se guarda
+  en `forma` con 4 decimales y hasta 60 KB; si no hay, `null`. Un lugar sin contorno conocido lo pide al guardarse.
+- **Miniatura y portada:** al guardar, si la primera foto cambió, se hace una copia de 240 px con `prepararFoto` y
+  se sube como `<uid>/<id>/miniatura-<nombre de la primera foto>.jpg` (se guarda en `miniatura` y se borra la
+  anterior). El mapa recibe como `portada` el enlace firmado de la miniatura o, si aún no hay, de la primera foto.
 - **Capa de datos:** todo lo que va a Supabase pasa por un objeto `datos` con esta forma (la de ejemplo la imita):
   - `sesion()` → `{ id, correo }` o `null`; `entrar(correo, clave)` → `{ id, correo }` (lanza `Error`); `salir()`.
   - `esPersona()` → boolean (la función `mundi_es_persona`).
