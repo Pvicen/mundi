@@ -3,7 +3,7 @@
 // Se ejecutan con `node --test` desde la raíz del repo.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ISO, SIN_CODIGO, alfa2, agrupar, crearMapa, RADIO_GRUPO } from "../../mapa.js";
+import { ISO, SIN_CODIGO, alfa2, agrupar, crearMapa, formaValida, RADIO_GRUPO } from "../../mapa.js";
 
 test("la tabla ISO: numérico de 3 cifras → alfa-2 en mayúsculas, sin repetidos", () => {
   const claves = Object.keys(ISO);
@@ -55,4 +55,19 @@ test("agrupar: justo en el radio ya no se juntan; sin puntos, sin grupos", () =>
 
 test("crearMapa rechaza lo que no es un elemento", async () => {
   await assert.rejects(crearMapa(null), TypeError);
+});
+
+test("formaValida: solo contornos que se pueden dibujar", () => {
+  const anillo = [[-3.8, 40.3], [-3.6, 40.3], [-3.6, 40.5], [-3.8, 40.3]];
+  assert.equal(formaValida({ type: "Polygon", coordinates: [anillo] }), true);
+  assert.equal(formaValida({ type: "MultiPolygon", coordinates: [[anillo], [anillo]] }), true);
+  // Los que encontró la revisión: sin coordenadas y con un polígono nulo
+  assert.equal(formaValida({ type: "Polygon" }), false);
+  assert.equal(formaValida({ type: "MultiPolygon", coordinates: [null] }), false);
+  assert.equal(formaValida({ type: "Polygon", coordinates: [] }), false);
+  assert.equal(formaValida({ type: "Polygon", coordinates: [anillo.slice(0, 3)] }), false);
+  assert.equal(formaValida({ type: "Polygon", coordinates: [[["a", 1], [1, 1], [1, 2], ["a", 1]]] }), false);
+  assert.equal(formaValida({ type: "Polygon", coordinates: [[[200, 1], [1, 1], [1, 2], [200, 1]]] }), false);
+  assert.equal(formaValida({ type: "Point", coordinates: [1, 2] }), false);
+  assert.equal(formaValida(null), false);
 });

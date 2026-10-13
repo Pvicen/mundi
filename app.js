@@ -2,7 +2,7 @@
 // borrar lugares con sus fotos, y tus cifras. Todo lo que va a Supabase pasa por `datos`; los textos se ponen con
 // textContent (nada de innerHTML con datos).
 import { SUPABASE_URL, SUPABASE_CLAVE } from "./config.js";
-import { crearMapa } from "./mapa.js";
+import { crearMapa, formaValida } from "./mapa.js";
 import { prepararFoto, LADO_MINIATURA } from "./fotos.js";
 import { crearZip, nombreSeguro } from "./copia.js";
 import { textoCompartir } from "./puente.js";
@@ -305,7 +305,13 @@ function pintar(resaltar = null) {
 }
 
 /* ---------- Portadas del mapa (polaroids) ---------- */
-const rutaPortada = (p) => p.miniatura || p.fotos?.[0] || null;
+// La miniatura se llama como la primera foto; si no coincide (p. ej., quedó una vieja), se usa la foto entera
+const miniaturaEsperada = (p) => (p.fotos?.[0] ? p.fotos[0].replace(/\/([^/]+)\.jpg$/, "/miniatura-$1.jpg") : null);
+function rutaPortada(p) {
+  const primera = p.fotos?.[0] ?? null;
+  if (!primera) return null;
+  return p.miniatura && p.miniatura === miniaturaEsperada(p) ? p.miniatura : primera;
+}
 function portadaDe(p) {
   const enlace = urls.get(rutaPortada(p));
   return enlace && enlace.hasta > Date.now() ? enlace.url : null;
@@ -327,8 +333,12 @@ async function firmarPortadas() {
 function normalizarForma(geo) {
   if (!geo || (geo.type !== "Polygon" && geo.type !== "MultiPolygon") || !Array.isArray(geo.coordinates)) return null;
   const redondearTodo = (c) => (typeof c === "number" ? Math.round(c * 1e4) / 1e4 : c.map(redondearTodo));
-  const forma = { type: geo.type, coordinates: redondearTodo(geo.coordinates) };
-  return JSON.stringify(forma).length <= MAX_FORMA ? forma : null;
+  let forma = { type: geo.type, coordinates: redondearTodo(geo.coordinates) };
+  if (forma.type === "MultiPolygon") {
+    // Se quedan solo los polígonos que se pueden dibujar
+    forma = { type: "MultiPolygon", coordinates: forma.coordinates.filter((pol) => formaValida({ type: "Polygon", coordinates: pol })) };
+  }
+  return formaValida(forma) && JSON.stringify(forma).length <= MAX_FORMA ? forma : null;
 }
 
 // El lugar de un punto (su ciudad o pueblo) según Nominatim: { nombre, forma }, o null si no responde
@@ -750,7 +760,7 @@ async function pintarFotosForm() {
 // foto cambia (o no hay), se rehace (o se quita) y se borra la anterior.
 async function rehacerMiniatura(p, subidas) {
   const primera = p.fotos?.[0] ?? null;
-  const esperada = primera ? primera.replace(/\/([^/]+)\.jpg$/, "/miniatura-$1.jpg") : null;
+  const esperada = miniaturaEsperada(p);
   if ((p.miniatura ?? null) === esperada) return p;
   if (esperada) {
     let origen = subidas.get(primera);
@@ -840,20 +850,32 @@ async function guardar(e) {
       }
     }
 
+    let falloMiniatura = false;
     try {
       ponerEstado("Guardando…");
       p = await rehacerMiniatura(p, subidas);
     } catch {
-      // sin miniatura, el mapa usa la primera foto entera
+      // Sin la miniatura nueva, que la fila no apunte a una vieja (el mapa usa la primera foto entera)
+      try {
+        if (p.miniatura && p.miniatura !== miniaturaEsperada(p)) {
+          const vieja = p.miniatura;
+          p = await datos.actualizar(p.id, { miniatura: null });
+          datos.quitarFotos([vieja]).catch(() => {});
+        }
+      } catch {
+        falloMiniatura = true;
+      }
     }
 
     pinchos = ordenar(pinchos.map((x) => (x.id === p.id ? p : x)));
-    if (fallos) {
+    if (fallos || falloMiniatura) {
       form.guardando = false;
       form.editando = p;
       validarForm();
       ponerEstado(null);
-      ponerError(`Se guardó el lugar, pero ${fallos} ${fallos === 1 ? "foto no se pudo" : "fotos no se pudieron"} subir. Pulsa Guardar para reintentarlo.`);
+      ponerError(fallos
+        ? `Se guardó el lugar, pero ${fallos} ${fallos === 1 ? "foto no se pudo" : "fotos no se pudieron"} subir. Pulsa Guardar para reintentarlo.`
+        : "Se guardó el lugar, pero la foto pequeña del mapa no se pudo poner al día. Pulsa Guardar para reintentarlo.");
       pintarFotosForm();
       pintar();
       return;

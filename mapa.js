@@ -76,6 +76,21 @@ export function alfa2(pais) {
 }
 
 // Agrupa puntos de pantalla [{ x, y, pincho }] que queden a menos de `radio` px → [{ x, y, pinchos }]
+// ¿Es un contorno que se puede dibujar? Polygon o MultiPolygon con anillos de al menos 4 puntos [lon, lat] en rango
+const esNumero = (n) => typeof n === "number" && Number.isFinite(n);
+const puntoValido = (p) => Array.isArray(p) && p.length >= 2 && esNumero(p[0]) && esNumero(p[1])
+  && Math.abs(p[0]) <= 180 && Math.abs(p[1]) <= 90;
+const anilloValido = (r) => Array.isArray(r) && r.length >= 4 && r.every(puntoValido);
+const poligonoValido = (pol) => Array.isArray(pol) && pol.length >= 1 && pol.every(anilloValido);
+export function formaValida(forma) {
+  if (!forma || typeof forma !== "object") return false;
+  if (forma.type === "Polygon") return poligonoValido(forma.coordinates);
+  if (forma.type === "MultiPolygon") {
+    return Array.isArray(forma.coordinates) && forma.coordinates.length >= 1 && forma.coordinates.every(poligonoValido);
+  }
+  return false;
+}
+
 export function agrupar(puntos, radio = RADIO_GRUPO) {
   const grupos = [];
   for (const p of [...puntos].sort((a, b) => a.y - b.y || a.x - b.x)) {
@@ -224,8 +239,9 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     const visitados = new Set(estuve.map((p) => p.pais).filter(Boolean));
     gMundo.selectAll("path.mm-pais").classed("mm-visitado", (d) => d.alfa2 !== null && visitados.has(d.alfa2));
     // La zona de cada lugar: su contorno real si lo trae (GeoJSON) o una mancha redonda alrededor del pincho
+    // Si la forma no se puede dibujar (venga de donde venga), la mancha: el mapa nunca se rompe por un contorno
     const formas = estuve.map((p) =>
-      p.forma ? rebobinar(p.forma) : d3.geoCircle().center([p.lon, p.lat]).radius(RADIO_ZONA_KM / 111.32)());
+      formaValida(p.forma) ? rebobinar(p.forma) : d3.geoCircle().center([p.lon, p.lat]).radius(RADIO_ZONA_KM / 111.32)());
     gZonas.selectAll("path.mm-zona").data(formas).join("path").attr("class", "mm-zona").attr("d", camino);
   }
 

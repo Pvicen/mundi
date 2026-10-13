@@ -4,6 +4,8 @@
 // Opciones en la URL: ?ejemplo&fuera (empieza sin sesión; la contraseña de prueba está en CLAVE_PRUEBA),
 // ?ejemplo&sinacceso (la cuenta no está en la lista), ?ejemplo&vacio (sin lugares) y ?ejemplo&fallofotos (falla
 // la subida de fotos).
+import { formaValida } from "../../mapa.js";
+
 export const CLAVE_PRUEBA = "ejemplo";
 
 const espera = (ms = 120) => new Promise((resolver) => setTimeout(resolver, ms));
@@ -17,8 +19,8 @@ function comprobarFila(p) {
   if (p.fecha !== null && !/^\d{4}-\d{2}-\d{2}$/.test(p.fecha)) throw new Error("invalid input syntax for type date");
   if (typeof p.relato !== "string" || p.relato.length > 4000) throw new Error('violates check constraint "mundi_pinchos_relato_check"');
   if (!Array.isArray(p.fotos) || p.fotos.length > 30) throw new Error('violates check constraint "mundi_pinchos_fotos_check"');
-  if (p.forma !== null && !(typeof p.forma === "object" && ["Polygon", "MultiPolygon"].includes(p.forma.type)
-    && Array.isArray(p.forma.coordinates) && JSON.stringify(p.forma).length <= 100000)) {
+  // La misma regla que mundi_forma_valida() de la base (setup/migraciones/2026-10-13-forma-estricta.sql)
+  if (p.forma !== null && !(formaValida(p.forma) && JSON.stringify(p.forma).length <= 100000)) {
     throw new Error('violates check constraint "mundi_pinchos_forma_check"');
   }
   if (!["visitado", "quiero_ir"].includes(p.estado)) throw new Error('violates check constraint "mundi_pinchos_estado_check"');

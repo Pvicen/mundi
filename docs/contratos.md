@@ -4,7 +4,7 @@ El único puente entre Cajas (método C.C.D. §2): cada Caja se programa leyendo
 
 ## BD — los datos en Supabase
 
-Migraciones: `setup/migraciones/2026-10-12-mundi.sql` y `2026-10-13-forma-y-miniatura.sql` y `2026-10-13-quiero-ir.sql` (en orden). Prueba: `setup/pruebas/bd.md`.
+Migraciones: `setup/migraciones/2026-10-12-mundi.sql` y `2026-10-13-forma-y-miniatura.sql` y `2026-10-13-quiero-ir.sql` y `2026-10-13-forma-estricta.sql` (en orden). Prueba: `setup/pruebas/bd.md`.
 Proyecto de Supabase: el mismo de la App de avisos. Todo lo de Mundi lleva el prefijo `mundi` y no toca nada suyo.
 
 ### Tabla `mundi_pinchos` (un pincho = un lugar donde estuvo)
@@ -19,7 +19,7 @@ Proyecto de Supabase: el mismo de la App de avisos. Todo lo de Mundi lleva el pr
 | `fecha` | date o null | Día del viaje; si solo se sabe el mes, el día 1 |
 | `relato` | text | `''` por defecto; hasta 4000 caracteres |
 | `fotos` | text[] | `{}` por defecto; hasta 30 rutas del almacén `mundi-fotos`, en orden (la primera es la portada) |
-| `forma` | jsonb o null | El contorno real del lugar (ciudad, isla…) en GeoJSON: `Polygon` o `MultiPolygon`, coordenadas `[lon, lat]`, hasta 100 KB. Null si no se conoce: el mapa pinta una mancha. |
+| `forma` | jsonb o null | El contorno real del lugar (ciudad, isla…) en GeoJSON: `Polygon` o `MultiPolygon` bien formado (anillos de al menos 4 puntos `[lon, lat]` numéricos y en rango), hasta 100 KB; lo comprueba `mundi_forma_valida()`. Null si no se conoce: el mapa pinta una mancha. |
 | `miniatura` | text o null | Ruta en el almacén de una copia pequeña (240 px) de la primera foto, para el mapa: `<dueno>/<id>/miniatura-<uuid>.jpg`. Tiene que empezar por la carpeta del dueño |
 | `estado` | text | `visitado` (por defecto) o `quiero_ir`: un sitio al que quiere ir |
 | `creado_en` | timestamptz | Lo pone la base |
@@ -84,7 +84,8 @@ Necesita los globales `d3` (7.9.0) y `topojson` (3.0.2), cargados antes desde cd
 - `mapa.pintar(pinchos, { resaltar } = {})`: pinta los pinchos, colorea en suave los países visitados y, en fuerte,
   cada lugar: su `forma` (GeoJSON) o, si no tiene, una mancha de 9 km alrededor. Cada pincho es un objeto con, al
   menos, `{ id, nombre, lat, lon, pais }` (las filas de `mundi_pinchos` valen tal cual), y puede llevar `forma` y
-  `portada` (la URL de una imagen): desde el zoom 4, un pincho con portada se dibuja como una polaroid clavada, con su
+  `portada` (la URL de una imagen). Si la `forma` no pasa `formaValida(forma)` (exportada), se pinta la mancha: un
+  contorno roto nunca impide dibujar el mapa. Desde el zoom 4, un pincho con portada se dibuja como una polaroid clavada, con su
   nombre escrito abajo (los grupos se juntan entonces a 62 px). Un pincho con `estado: "quiero_ir"` se dibuja en el
   color `--deseo`, sin polaroid, y no pinta ni su país ni su lugar. Sustituye lo
   pintado antes. Los pinchos que en pantalla quedan cerca se agrupan en un círculo con el número; al acercar, se
@@ -116,7 +117,10 @@ Ficheros: `index.html`, `app.js`, `style.css` y `config.js`. Usa los Contratos B
   en `forma` con 4 decimales y hasta 60 KB; si no hay, `null`. Un lugar sin contorno conocido lo pide al guardarse.
 - **Miniatura y portada:** al guardar, si la primera foto cambió, se hace una copia de 240 px con `prepararFoto` y
   se sube como `<uid>/<id>/miniatura-<nombre de la primera foto>.jpg` (se guarda en `miniatura` y se borra la
-  anterior). El mapa recibe como `portada` el enlace firmado de la miniatura o, si aún no hay, de la primera foto.
+  anterior). El mapa recibe como `portada` el enlace firmado de la miniatura **solo si es la de la primera foto
+  actual**; si no (o no hay), el de la primera foto; sin fotos, ninguna. Si la miniatura no se puede rehacer, la fila
+  deja de apuntar a la vieja; si ni eso se puede, el formulario avisa y se reintenta con Guardar. Solo se guardan
+  contornos que pasan `formaValida`.
 - **Capa de datos:** todo lo que va a Supabase pasa por un objeto `datos` con esta forma (la de ejemplo la imita):
   - `sesion()` → `{ id, correo }` o `null`; `entrar(correo, clave)` → `{ id, correo }` (lanza `Error`); `salir()`.
   - `esPersona()` → boolean (la función `mundi_es_persona`).
