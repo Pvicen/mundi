@@ -103,6 +103,8 @@
       <div class="meta" id="lugar-meta"></div>
       <p class="relato" id="lugar-relato"></p>
       <div class="acciones">
+        <button class="boton-principal pequeno" id="lugar-ya-fui" type="button" hidden>Ya fui</button>
+        <button class="boton-suave" id="lugar-compartir" type="button">Compartir</button>
         <button class="boton-suave" id="lugar-editar" type="button">Editar</button>
         <button class="boton-suave peligro" id="lugar-borrar" type="button">Borrar</button>
       </div>
@@ -115,6 +117,11 @@
     <button class="cerrar" type="button" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     <form class="contenido form" id="form-lugar" novalidate>
       <h2 class="titulo" id="form-titulo">Nuevo lugar</h2>
+
+      <div class="segmentos" role="radiogroup" aria-label="¿Ya fuiste?">
+        <label><input type="radio" name="estado" value="visitado" checked><span>Estuve aquí</span></label>
+        <label><input type="radio" name="estado" value="quiero_ir"><span>Quiero ir</span></label>
+      </div>
 
       <div class="campo">
         <span class="etiqueta-campo">Dónde</span>
@@ -140,7 +147,7 @@
         <input class="entrada" id="campo-nombre" type="text" maxlength="80" required>
       </div>
 
-      <div class="campo">
+      <div class="campo" id="campo-cuando">
         <label for="campo-fecha">Cuándo</label>
         <input class="entrada" id="campo-fecha" type="month">
       </div>
@@ -182,6 +189,8 @@
       <div class="lista" id="perfil-paises"></div>
       <h3 class="subtitulo">Lugares</h3>
       <div class="lista" id="perfil-lugares"></div>
+      <h3 class="subtitulo" id="perfil-deseos-titulo" hidden>Quiero ir</h3>
+      <div class="lista" id="perfil-deseos" hidden></div>
       <h3 class="subtitulo">Copia de seguridad</h3>
       <p class="suave">Un archivo .zip con todos tus lugares y sus fotos, para guardarlo donde quieras.</p>
       <button class="boton-suave" id="descargar-copia" type="button">Descargar copia</button>

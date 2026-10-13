@@ -5,9 +5,10 @@ import { SUPABASE_URL, SUPABASE_CLAVE } from "./config.js";
 import { crearMapa } from "./mapa.js";
 import { prepararFoto, LADO_MINIATURA } from "./fotos.js";
 import { crearZip, nombreSeguro } from "./copia.js";
+import { textoCompartir } from "./puente.js";
 
 const ALMACEN = "mundi-fotos";
-const COLUMNAS = "id, nombre, pais, lat, lon, fecha, relato, fotos, forma, miniatura, creado_en";
+const COLUMNAS = "id, nombre, pais, lat, lon, fecha, relato, fotos, forma, miniatura, estado, creado_en";
 const MAX_FORMA = 60000; // caracteres del contorno que se guarda (la base admite 100 KB)
 const MAX_FOTOS = 30;
 const SEGUNDOS_URL = 3600;
@@ -261,17 +262,23 @@ async function cargarPinchos() {
 }
 
 /* ---------- Filtro por año ---------- */
-const anioDe = (p) => (p.fecha ? p.fecha.slice(0, 4) : "sin-fecha");
+const esDeseo = (p) => p.estado === "quiero_ir"; // un sitio al que quiere ir (no cuenta como visitado)
+const anioDe = (p) => (esDeseo(p) ? "quiero-ir" : p.fecha ? p.fecha.slice(0, 4) : "sin-fecha");
 const visibles = () => (filtro === "todos" ? pinchos : pinchos.filter((p) => anioDe(p) === filtro));
 
 function pintarFiltro() {
-  const anios = [...new Set(pinchos.filter((p) => p.fecha).map(anioDe))].sort().reverse();
-  const opciones = pinchos.some((p) => !p.fecha) ? [...anios, "sin-fecha"] : anios;
+  const estuve = pinchos.filter((p) => !esDeseo(p));
+  const anios = [...new Set(estuve.filter((p) => p.fecha).map(anioDe))].sort().reverse();
+  const opciones = [
+    ...anios,
+    ...(estuve.some((p) => !p.fecha) ? ["sin-fecha"] : []),
+    ...(pinchos.some(esDeseo) ? ["quiero-ir"] : []),
+  ];
   if (filtro !== "todos" && !opciones.includes(filtro)) filtro = "todos";
   const barra = $("#filtro-anio");
   barra.hidden = opciones.length < 2;
   barra.replaceChildren(...["todos", ...opciones].map((valor) => {
-    const boton = el("button", null, valor === "todos" ? "Todos" : valor === "sin-fecha" ? "Sin fecha" : valor);
+    const boton = el("button", null, valor === "todos" ? "Todos" : valor === "sin-fecha" ? "Sin fecha" : valor === "quiero-ir" ? "Quiero ir" : valor);
     boton.type = "button";
     boton.setAttribute("aria-pressed", String(valor === filtro));
     boton.addEventListener("click", () => {
@@ -288,11 +295,12 @@ function pintar(resaltar = null) {
   const lista = visibles();
   mapa?.pintar(lista.map((p) => ({ ...p, portada: portadaDe(p) })), { resaltar });
   firmarPortadas();
-  const paises = new Set(lista.map((p) => p.pais).filter(Boolean)).size;
-  $("#cifras").replaceChildren(
-    el("b", null, String(paises)), ` ${paises === 1 ? "país" : "países"} · `,
-    el("b", null, String(lista.length)), ` ${lista.length === 1 ? "lugar" : "lugares"}`
-  );
+  const estuve = lista.filter((p) => !esDeseo(p));
+  const paises = new Set(estuve.map((p) => p.pais).filter(Boolean)).size;
+  $("#cifras").replaceChildren(...(filtro === "quiero-ir"
+    ? [el("b", null, String(lista.length)), " por visitar"]
+    : [el("b", null, String(paises)), ` ${paises === 1 ? "país" : "países"} · `,
+      el("b", null, String(estuve.length)), ` ${estuve.length === 1 ? "lugar" : "lugares"}`]));
   $("#vacio").hidden = pinchos.length > 0;
 }
 
@@ -381,7 +389,9 @@ async function abrirLugar(p) {
   abierto = p;
   $("#lugar-titulo").textContent = p.nombre;
   const meta = $("#lugar-meta");
-  meta.replaceChildren(el("span", "sello", `${bandera(p.pais)} ${nombrePais(p.pais)}`.trim()));
+  const pais = `${bandera(p.pais)} ${nombrePais(p.pais)}`.trim();
+  meta.replaceChildren(esDeseo(p) ? el("span", "sello deseo", `Quiero ir · ${pais}`) : el("span", "sello", pais));
+  $("#lugar-ya-fui").hidden = !esDeseo(p);
   if (p.fecha) meta.append(el("span", null, textoFecha(p.fecha)));
   meta.append(el("span", "coords", coordenadas(p.lat, p.lon)));
   $("#lugar-relato").textContent = p.relato || "";
@@ -405,6 +415,45 @@ async function abrirLugar(p) {
     boton.addEventListener("click", () => abrirVisor(lista, i));
     carrusel.append(boton);
   });
+}
+
+// Compartir (Contrato «Puente con la App de avisos»): nombre y enlace de mapa; sin navigator.share, al portapapeles
+async function compartir() {
+  const p = abierto;
+  if (!p) return;
+  const texto = textoCompartir(p);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: p.nombre, text: texto });
+      return;
+    } catch (e) {
+      if (e.name === "AbortError") return; // lo cerró sin elegir
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(texto);
+    avisar("Copiado: pégalo donde quieras.");
+  } catch {
+    avisar("No se pudo compartir ni copiar.");
+  }
+}
+
+// Un «quiero ir» al que ya fue: pasa a visitado con el mes de hoy
+async function yaFui() {
+  const p = abierto;
+  if (!p || !esDeseo(p)) return;
+  const hoy = new Date();
+  const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-01`;
+  try {
+    const nuevo = await datos.actualizar(p.id, { estado: "visitado", fecha });
+    pinchos = ordenar(pinchos.map((x) => (x.id === nuevo.id ? nuevo : x)));
+    if (filtro === "quiero-ir") filtro = "todos";
+    pintar(nuevo.id);
+    abrirLugar(nuevo);
+    avisar("¡A tu mapa! Edítalo para añadir fotos y el relato.");
+  } catch (e) {
+    avisar("No se pudo cambiar: " + e.message);
+  }
 }
 
 async function borrarLugar() {
@@ -444,6 +493,12 @@ function cerrarVisor() {
 }
 
 /* ---------- Formulario: nuevo lugar o editar ---------- */
+const estadoForm = () => document.querySelector('input[name="estado"]:checked')?.value ?? "visitado";
+// Un «quiero ir» no tiene fecha: el campo «Cuándo» se esconde
+function pintarEstadoForm() {
+  $("#campo-cuando").hidden = estadoForm() === "quiero_ir";
+}
+
 function abrirForm(p = null) {
   descartarForm();
   form = {
@@ -457,6 +512,9 @@ function abrirForm(p = null) {
   };
   $("#form-titulo").textContent = p ? "Editar lugar" : "Nuevo lugar";
   $("#campo-nombre").value = p?.nombre ?? "";
+  const estado = p?.estado ?? (filtro === "quiero-ir" ? "quiero_ir" : "visitado");
+  for (const r of document.querySelectorAll('input[name="estado"]')) r.checked = r.value === estado;
+  pintarEstadoForm();
   $("#campo-fecha").value = p?.fecha ? p.fecha.slice(0, 7) : "";
   $("#campo-relato").value = p?.relato ?? "";
   $("#buscar-texto").value = "";
@@ -735,7 +793,8 @@ async function guardar(e) {
     pais: form.donde.pais,
     lat: form.donde.lat,
     lon: form.donde.lon,
-    fecha: /^\d{4}-\d{2}$/.test(mes) ? `${mes}-01` : null,
+    estado: estadoForm(),
+    fecha: estadoForm() !== "quiero_ir" && /^\d{4}-\d{2}$/.test(mes) ? `${mes}-01` : null,
     relato: $("#campo-relato").value.trim(),
     ...(form.donde.forma !== undefined ? { forma: form.donde.forma } : {}),
   };
@@ -817,16 +876,18 @@ async function guardar(e) {
 /* ---------- Perfil ---------- */
 function abrirPerfil() {
   $("#perfil-correo").textContent = yo?.correo ?? "";
+  const estuve = pinchos.filter((p) => !esDeseo(p));
+  const deseos = pinchos.filter(esDeseo);
   const porPais = new Map();
-  for (const p of pinchos) if (p.pais) porPais.set(p.pais, (porPais.get(p.pais) ?? 0) + 1);
-  const fotos = pinchos.reduce((suma, p) => suma + (p.fotos?.length ?? 0), 0);
+  for (const p of estuve) if (p.pais) porPais.set(p.pais, (porPais.get(p.pais) ?? 0) + 1);
+  const fotos = estuve.reduce((suma, p) => suma + (p.fotos?.length ?? 0), 0);
   const cifra = (n, singular, plural) => {
     const caja = el("div");
     caja.append(el("strong", null, String(n)), el("span", null, n === 1 ? singular : plural));
     return caja;
   };
   $("#perfil-cifras").replaceChildren(
-    cifra(porPais.size, "país", "países"), cifra(pinchos.length, "lugar", "lugares"), cifra(fotos, "foto", "fotos")
+    cifra(porPais.size, "país", "países"), cifra(estuve.length, "lugar", "lugares"), cifra(fotos, "foto", "fotos")
   );
   const porcentaje = Math.min(100, (porPais.size / TOTAL_PAISES) * 100);
   $("#perfil-barra").style.width = porcentaje + "%";
@@ -843,8 +904,21 @@ function abrirPerfil() {
     })
     : [el("p", "suave", "Aún no hay países.")]));
 
-  $("#perfil-lugares").replaceChildren(...(pinchos.length
-    ? pinchos.map((p) => {
+  $("#perfil-deseos-titulo").hidden = $("#perfil-deseos").hidden = !deseos.length;
+  $("#perfil-deseos").replaceChildren(...deseos.map((p) => {
+    const boton = el("button");
+    boton.type = "button";
+    boton.append(el("span", null, p.nombre), el("small", null, nombrePais(p.pais)));
+    boton.addEventListener("click", () => {
+      cerrarHojas();
+      mapa?.irA(p.lat, p.lon);
+      abrirLugar(p);
+    });
+    return boton;
+  }));
+
+  $("#perfil-lugares").replaceChildren(...(estuve.length
+    ? estuve.map((p) => {
       const boton = el("button");
       boton.type = "button";
       boton.append(el("span", null, p.nombre),
@@ -902,7 +976,7 @@ async function descargarCopia() {
         }
       }
       lugares.push({
-        id: p.id, nombre: p.nombre, pais: p.pais, lat: p.lat, lon: p.lon, fecha: p.fecha,
+        id: p.id, nombre: p.nombre, estado: p.estado ?? "visitado", pais: p.pais, lat: p.lat, lon: p.lon, fecha: p.fecha,
         relato: p.relato, forma: p.forma ?? null, creado_en: p.creado_en, fotos: rutas,
       });
     }
@@ -947,6 +1021,9 @@ function ponerEventos() {
   for (const b of document.querySelectorAll(".hoja .cerrar")) b.addEventListener("click", () => cerrarHojas());
   $("#lugar-editar").addEventListener("click", () => abrirForm(abierto));
   $("#lugar-borrar").addEventListener("click", borrarLugar);
+  $("#lugar-compartir").addEventListener("click", compartir);
+  $("#lugar-ya-fui").addEventListener("click", yaFui);
+  for (const r of document.querySelectorAll('input[name="estado"]')) r.addEventListener("change", pintarEstadoForm);
   $("#form-lugar").addEventListener("submit", guardar);
   $("#buscar-boton").addEventListener("click", buscar);
   $("#buscar-texto").addEventListener("keydown", (e) => {

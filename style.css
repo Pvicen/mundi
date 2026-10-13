@@ -9,6 +9,7 @@
   --visitado: #E2B85C;
   --visitado-borde: #8A6E4B;
   --pin: #B23A2B;
+  --deseo: #3D7A74;
   --tinta: #3B2F22;
   --tinta-2: #6B5843;
   --tinta-3: #9A8468;
@@ -29,7 +30,7 @@
   :root {
     --pared: #1B1610; --mar: #1F2B27; --tierra: #2A231A; --tierra-borde: #5E4D38;
     --visitado: #B8862F; --visitado-borde: #E2B85C;
-    --pin: #E0533F; --tinta: #F1E6D0; --tinta-2: #C9B89A; --tinta-3: #9C8A6E;
+    --pin: #E0533F; --deseo: #6DB3A8; --tinta: #F1E6D0; --tinta-2: #C9B89A; --tinta-3: #9C8A6E;
     --sup: #241E16; --sup-2: #2D261C; --linea: #3D3326; --postal: #EDE3CF;
     --grat: rgba(241, 230, 208, .08);
     --sombra-hoja: 0 -10px 30px rgba(0, 0, 0, .5); --sombra-boton: 0 2px 8px rgba(0, 0, 0, .4);
@@ -223,6 +224,17 @@ textarea.entrada { resize: vertical; min-height: 90px; font-family: var(--f-titu
 }
 .carrusel:not(:empty) + .lugar-titulo { padding-right: 0; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13.5px; color: var(--tinta-2); }
+/* «Estuve aquí» o «Quiero ir» en el formulario */
+.segmentos { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--tierra-borde); border-radius: 999px; padding: 3px; gap: 3px; }
+.segmentos label { position: relative; }
+.segmentos input { position: absolute; opacity: 0; pointer-events: none; }
+.segmentos span { display: block; text-align: center; padding: 8px 10px; border-radius: 999px; font-weight: 600; font-size: 14px; cursor: pointer; color: var(--tinta-2); }
+.segmentos input:checked + span { background: var(--tinta); color: var(--pared); }
+.segmentos input[value="quiero_ir"]:checked + span { background: var(--deseo); color: #FFFFFF; }
+.segmentos input:focus-visible + span { outline: 2px solid var(--pin); outline-offset: 2px; }
+.boton-principal.pequeno { padding: 8px 16px; font-size: 13.5px; }
+#lugar-ya-fui { background: var(--deseo); }
+.sello.deseo { border-color: var(--deseo); color: var(--deseo); }
 .sello {
   display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border: 1.5px solid var(--pin);
   border-radius: 4px; color: var(--pin); font-weight: 700; font-size: 12px; letter-spacing: .06em;

@@ -21,6 +21,7 @@ function comprobarFila(p) {
     && Array.isArray(p.forma.coordinates) && JSON.stringify(p.forma).length <= 100000)) {
     throw new Error('violates check constraint "mundi_pinchos_forma_check"');
   }
+  if (!["visitado", "quiero_ir"].includes(p.estado)) throw new Error('violates check constraint "mundi_pinchos_estado_check"');
   if (p.miniatura !== null && !(p.miniatura.length <= 300 && p.miniatura.startsWith(p.dueno + "/"))) {
     throw new Error('violates check constraint "mundi_pinchos_miniatura_check"');
   }
@@ -37,8 +38,9 @@ export function crearDatosEjemplo() {
     { nombre: "Lyon", pais: "FR", lat: 45.764, lon: 4.8357, fecha: "2025-12-01", relato: "Fête des Lumières." },
     { nombre: "Santorini", pais: "GR", lat: 36.3932, lon: 25.4615, fecha: "2026-06-01", relato: "Atardecer en Oia.\nCalor." },
     { nombre: "Santiago", pais: "CL", lat: -33.4489, lon: -70.6693, fecha: null, relato: "Casa." },
+    { nombre: "Museo del Prado", pais: "ES", lat: 40.4138, lon: -3.6921, fecha: null, relato: "", estado: "quiero_ir" },
   ].map((p, i) => ({
-    id: `00000000-0000-4000-8000-00000000010${i}`, dueno: yo.id, fotos: [], forma: null, miniatura: null, creado_en: `2026-01-0${i + 1}T10:00:00Z`, ...p,
+    id: `00000000-0000-4000-8000-00000000010${i}`, dueno: yo.id, fotos: [], forma: null, miniatura: null, estado: "visitado", creado_en: `2026-01-0${i + 1}T10:00:00Z`, ...p,
   }));
   const copia = (p) => ({ ...p, fotos: [...p.fotos] });
 
@@ -66,7 +68,7 @@ export function crearDatosEjemplo() {
     },
     async crear(fila) {
       await espera();
-      const p = { id: crypto.randomUUID(), dueno: yo.id, fecha: null, relato: "", fotos: [], forma: null, miniatura: null, ...fila,
+      const p = { id: crypto.randomUUID(), dueno: yo.id, fecha: null, relato: "", fotos: [], forma: null, miniatura: null, estado: "visitado", ...fila,
         creado_en: new Date().toISOString() };
       comprobarFila(p);
       pinchos.push(p);

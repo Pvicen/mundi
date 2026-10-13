@@ -98,6 +98,7 @@ Orden aprobado: BD → lote de Fotos, Cáscara PWA y Documentación → Mapa →
 | Mapa | crítica | `mapa.js`, su prueba `setup/pruebas/mapa.test.mjs` y la página `setup/pruebas/mapa.html` | «Mapa» |
 | Interfaz | crítica | `index.html`, `app.js`, `style.css`, `config.js` y los datos de ejemplo `setup/pruebas/datos-ejemplo.js` | «Interfaz» |
 | Copia | lote | `copia.js` (el ZIP de la copia) y su prueba `setup/pruebas/copia.test.mjs` | «Copia» |
+| Puente | lote | `puente.js` (lo que se comparte) y su prueba `setup/pruebas/puente.test.mjs` | «Puente» y `docs/puente-avisos.md` |
 
 **Lotes (C.C.D. §6):** son críticas toda migración o cambio de RLS o del almacén, el mapa y lo que toque la sesión o
 los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir en lote.
@@ -129,6 +130,7 @@ los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir 
 - `docs/contexto.md` — la idea, el objetivo, la demo, la técnica decidida y lo pendiente.
   **Leerlo entero antes de empezar.**
 - `docs/contratos.md` — los Contratos entre Cajas.
+- `docs/puente-avisos.md` — lo único que une Mundi con la App de avisos: el texto que se comparte.
 - `README.md` — el estado de cada parte y cómo está hecha.
 - `demo/mundi.html` — la fuente de la demo publicada (enlace en `docs/contexto.md`).
 - `DEUDA_TECNICA.md` — errores no críticos anotados.
@@ -142,7 +144,7 @@ Vista previa local: configuración `mundi` de `C:\Dev\.claude\launch.json` (puer
 Gate mínimo antes de commitear:
 
 ```powershell
-node --check app.js; node --check config.js; node --check copia.js; node --check fotos.js; node --check mapa.js; node --check sw.js; node --test
+node --check app.js; node --check config.js; node --check copia.js; node --check puente.js; node --check fotos.js; node --check mapa.js; node --check sw.js; node --test
 ```
 
 y abrir la vista previa sin errores en la consola. Lo que solo existe en el navegador (el lienzo de las fotos, el

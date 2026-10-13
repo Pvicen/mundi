@@ -65,7 +65,7 @@ Ficheros: `manifest.webmanifest`, `sw.js` e `icons/` (`icono-192.png`, `icono-51
 
 - `index.html` enlaza el manifiesto (`<link rel="manifest" href="manifest.webmanifest">`) y el icono de iPhone
   (`<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">`), y registra `./sw.js`.
-- `sw.js` guarda la cáscara propia (`ASSETS`: `./`, `index.html`, `style.css`, `app.js`, `mapa.js`, `fotos.js`, `copia.js`,
+- `sw.js` guarda la cáscara propia (`ASSETS`: `./`, `index.html`, `style.css`, `app.js`, `mapa.js`, `fotos.js`, `copia.js`, `puente.js`,
   `config.js`, el manifiesto y los iconos) y lo que se pida a los CDN (`cdn.jsdelivr.net`, `cdnjs.cloudflare.com`) y a
   Google Fonts. Red primero y caché de respaldo, para que funcione sin conexión.
 - **Nunca toca lo que va a Supabase** (datos ni fotos): siempre va directo a la red.
@@ -85,7 +85,8 @@ Necesita los globales `d3` (7.9.0) y `topojson` (3.0.2), cargados antes desde cd
   cada lugar: su `forma` (GeoJSON) o, si no tiene, una mancha de 9 km alrededor. Cada pincho es un objeto con, al
   menos, `{ id, nombre, lat, lon, pais }` (las filas de `mundi_pinchos` valen tal cual), y puede llevar `forma` y
   `portada` (la URL de una imagen): desde el zoom 4, un pincho con portada se dibuja como una polaroid clavada, con su
-  nombre escrito abajo (los grupos se juntan entonces a 62 px). Sustituye lo
+  nombre escrito abajo (los grupos se juntan entonces a 62 px). Un pincho con `estado: "quiero_ir"` se dibuja en el
+  color `--deseo`, sin polaroid, y no pinta ni su país ni su lugar. Sustituye lo
   pintado antes. Los pinchos que en pantalla quedan cerca se agrupan en un círculo con el número; al acercar, se
   separan. `resaltar` es el `id` de un pincho que entra con animación (el recién guardado).
 - `mapa.encuadrar()`: ajusta la vista para que se vean todos los pinchos (la vista inicial si no hay).
@@ -157,3 +158,24 @@ Fichero: `copia.js` (módulo ES, sin dependencias). Prueba: `setup/pruebas/copia
 - **Copia de seguridad:** botón «Descargar copia» en el perfil. Descarga las fotos con `datos.urlsFirmadas`, arma
   el ZIP con `crearZip` y lo descarga. Si alguna foto no se puede bajar, la copia sale igual y avisa de cuántas
   faltan.
+
+## Puente — compartir un lugar (con la App de avisos)
+
+Fichero: `puente.js` (módulo ES, sin dependencias). Prueba: `setup/pruebas/puente.test.mjs`. El acuerdo con la App de
+avisos está en `docs/puente-avisos.md`.
+
+- `textoCompartir({ nombre, lat, lon })` → texto de dos líneas: el nombre (en una línea; «Lugar» si está vacío) y
+  `enlaceMapa(lat, lon)`.
+- `enlaceMapa(lat, lon)` → `https://maps.google.com/?q=LAT,LON` con punto decimal y 6 decimales, sin espacios.
+  Coordenadas fuera de rango: `RangeError`.
+
+## Interfaz — «Quiero ir» y «Compartir» (añadido)
+
+- En el formulario, «Estuve aquí» o «Quiero ir» (`estado`). Un «quiero ir» no lleva fecha (el campo «Cuándo» se
+  esconde y se guarda null); fotos y relato, opcionales como siempre.
+- El filtro suma la opción «Quiero ir» si hay alguno; los años y «Sin fecha» solo cuentan lo visitado. Con «Quiero
+  ir», la cabecera dice cuántos hay «por visitar»; si no, cuenta solo lo visitado. El perfil cuenta solo lo visitado
+  y lista aparte los «Quiero ir».
+- En la ficha, el país sale como sello «Quiero ir · País» y el botón «Ya fui» lo pasa a visitado con el mes de hoy.
+- En la ficha de cualquier pincho, «Compartir»: `navigator.share({ title: nombre, text: textoCompartir(pincho) })`;
+  si el navegador no puede compartir, copia ese texto al portapapeles y lo dice.

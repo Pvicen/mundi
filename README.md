@@ -17,6 +17,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | Filtro por año y copia de seguridad (.zip con lugares y fotos) | Hecho |
 | Diseño «Mapa de papel» (papel, sepia, ocre y rojo lacre; Fraunces y Outfit; versión oscura) | Hecho |
 | El lugar en vez del país (contorno real de OpenStreetMap o mancha) y fotos en el mapa como polaroids | Hecho |
+| «Quiero ir» (sitios pendientes, en otro color) y «Compartir» un lugar (también hacia la App de avisos) | Hecho |
 
 ## Cómo está hecha
 
@@ -38,6 +39,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | `setup/pruebas/datos-ejemplo.js` | Datos inventados para probar la app en local con `?ejemplo` |
 | `fotos.js` | Prepara cada foto antes de subirla |
 | `copia.js` | Arma el .zip de la copia de seguridad (sin librerías) |
+| `puente.js` | El texto que se comparte de un lugar (nombre y enlace de Google Maps); acuerdo en `docs/puente-avisos.md` |
 | `mapa.js` | El mapamundi (d3 y Natural Earth a 1:50 millones); se prueba en `setup/pruebas/mapa.html` |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Lo que permite instalarla y abrirla sin conexión |
 | `setup/iconos.py` | Dibuja los iconos (`py -3 setup/iconos.py`, con Pillow) |
