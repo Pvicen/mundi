@@ -48,6 +48,27 @@
     { id: "p5", nombre: "Santiago", buscar: "Santiago, Región Metropolitana, Chile", pais: "CL", lat: -33.4489, lon: -70.6693 },
     { id: "p6", nombre: "Valparaíso", buscar: "Valparaíso, Valparaíso, Chile", pais: "CL", lat: -33.0458, lon: -71.6197 },
   ];
+  // «Fotos» dibujadas (inventadas) para probar las polaroids: cielo, suelo y unas casas o montañas
+  async function dibujo(cielo, suelo, casas, montes) {
+    const c = document.createElement("canvas"); c.width = 320; c.height = 240;
+    const x = c.getContext("2d");
+    x.fillStyle = cielo; x.fillRect(0, 0, 320, 240);
+    x.fillStyle = "rgba(255,255,255,.85)"; x.beginPath(); x.arc(250, 55, 26, 0, 7); x.fill();
+    if (montes) { x.fillStyle = montes; x.beginPath(); x.moveTo(0, 170); x.lineTo(90, 70); x.lineTo(170, 160); x.lineTo(240, 90); x.lineTo(320, 170); x.fill(); }
+    x.fillStyle = suelo; x.fillRect(0, 165, 320, 75);
+    casas.forEach((col, i) => { x.fillStyle = col; x.fillRect(18 + i * 50, 120 - (i % 3) * 18, 40, 70 + (i % 3) * 18); });
+    return URL.createObjectURL(await new Promise((r) => c.toBlob(r, "image/jpeg", 0.85)));
+  }
+  const dibujos = {
+    p1: ["#f4a259", "#c9b79c", ["#e8d5b7", "#d9a066", "#f1e3c8", "#c97b4a", "#e8d5b7", "#b5651d"]],
+    p2: ["#9fc5e8", "#b7b7a4", ["#d5c6a1", "#cfc0a0", "#bfb08f", "#d5c6a1", "#cfc0a0", "#e0d4b4"]],
+    p3: ["#3d4a7a", "#2f3b5c", ["#f6c453", "#f08a4b", "#f6c453", "#e85d75", "#f6c453", "#f08a4b"]],
+    p4: ["#4a90d9", "#2d6db3", ["#ffffff", "#ffffff", "#e8f1fb", "#ffffff", "#ffffff", "#e8f1fb"]],
+    p5: ["#a7c7e7", "#8a9a5b", ["#c9ada7", "#b8a9a0", "#d8cfc4", "#c9ada7"], "#e9edf2"],
+    p6: ["#7fb2d9", "#6b8e9e", ["#e63946", "#f1c40f", "#2a9d8f", "#e76f51", "#9b5de5", "#f4a261"]],
+  };
+  for (const p of pinchos) p.portada = await dibujo(...dibujos[p.id]);
+
   const mapa = await crearMapa(document.getElementById("mapa"));
   let zonas = "no";
   const pintar = () => {

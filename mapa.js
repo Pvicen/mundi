@@ -7,6 +7,33 @@ export const URL_GEOMETRIA = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/cou
 export const RADIO_GRUPO = 24; // px: pinchos más cerca que esto en pantalla van juntos
 const ZOOM_MAXIMO = 120;
 const RADIO_ZONA_KM = 9; // la mancha de un lugar sin contorno
+const ZOOM_FOTOS = 4; // desde este zoom, los pinchos con foto (portada) se ven como polaroids
+const RADIO_GRUPO_FOTOS = 62;
+let clipsCreados = 0;
+
+// Un giro pequeño y siempre el mismo para cada pincho, como una foto clavada a mano
+function giro(id) {
+  let h = 0;
+  for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return ((Math.abs(h) % 13) - 6) * 1.1;
+}
+
+function polaroid(sel, p) {
+  sel.append("line").attr("class", "mm-hilo").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", -10);
+  sel.append("ellipse").attr("class", "mm-sombra").attr("rx", 4).attr("ry", 1.6);
+  const marco = sel.append("g").attr("class", "mm-polaroid").attr("transform", `translate(0,-44) rotate(${giro(p.id)})`);
+  marco.append("rect").attr("class", "mm-polaroid-sombra").attr("x", -25).attr("y", -28).attr("width", 52).attr("height", 62);
+  marco.append("rect").attr("class", "mm-polaroid-papel").attr("x", -27).attr("y", -31).attr("width", 54).attr("height", 62).attr("rx", 1.5);
+  const clip = `mm-clip-${++clipsCreados}`;
+  marco.append("clipPath").attr("id", clip).append("rect").attr("x", -23).attr("y", -27).attr("width", 46).attr("height", 42);
+  marco.append("image").attr("href", p.portada).attr("x", -23).attr("y", -27).attr("width", 46).attr("height", 42)
+    .attr("preserveAspectRatio", "xMidYMid slice").attr("clip-path", `url(#${clip})`);
+  const nombre = p.nombre.length > 13 ? p.nombre.slice(0, 12) + "…" : p.nombre;
+  marco.append("text").attr("class", "mm-polaroid-nombre").attr("y", 25).text(nombre);
+  marco.append("circle").attr("class", "mm-cabeza").attr("cy", -31).attr("r", 4.6);
+  marco.append("circle").attr("class", "mm-brillo").attr("cx", -1.4).attr("cy", -32.4).attr("r", 1.4);
+  sel.append("rect").attr("class", "mm-toque").attr("x", -30).attr("y", -80).attr("width", 60).attr("height", 82);
+}
 const ZOOM_PUNTO = 6;
 
 // ISO 3166-1: el código numérico (el id de world-atlas) → alfa-2 (el `pais` de la base)
@@ -71,6 +98,10 @@ const ESTILOS = `
 .mm-pais { fill: var(--tierra, #FAFBF8); stroke: var(--tierra-borde, #A9BEC7); stroke-width: .7; vector-effect: non-scaling-stroke; transition: fill .4s; }
 .mm-pais.mm-visitado { fill: var(--visitado, #F0B23E); stroke: var(--visitado-borde, #B9821A); }
 .mundi-mapa.mm-paises-suaves .mm-pais.mm-visitado { fill: color-mix(in srgb, var(--visitado, #F0B23E) 30%, var(--tierra, #FAFBF8)); stroke: var(--tierra-borde, #A9BEC7); }
+.mm-polaroid-papel { fill: var(--postal, #FFFFFF); stroke: rgba(59, 47, 34, .25); stroke-width: .6; }
+.mm-polaroid-sombra { fill: #000000; opacity: .16; }
+.mm-polaroid-nombre { font: italic 600 8.5px var(--f-titulo, Georgia, serif); fill: #3B2F22; text-anchor: middle; }
+.mm-hilo { stroke: var(--tinta-2, #4C6371); stroke-width: 1.2; stroke-linecap: round; }
 .mm-zona { fill: var(--visitado, #F0B23E); fill-opacity: .8; stroke: var(--visitado-borde, #B9821A); stroke-width: 1.2; vector-effect: non-scaling-stroke; pointer-events: none; }
 .mm-marca { cursor: pointer; }
 .mm-marca:focus { outline: none; }
@@ -212,14 +243,20 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
       const [x, y] = enPantalla(p.lat, p.lon);
       return { x, y, pincho: p };
     });
-    const grupos = agrupar(puntos);
-    for (const g of grupos) g.clave = g.pinchos.map((p) => p.id).sort().join("|");
+    const conFotos = t.k >= ZOOM_FOTOS;
+    const grupos = agrupar(puntos, conFotos ? RADIO_GRUPO_FOTOS : RADIO_GRUPO);
+    for (const g of grupos) {
+      g.polaroid = conFotos && g.pinchos.length === 1 && !!g.pinchos[0].portada;
+      g.clave = (g.polaroid ? "f:" : "p:") + g.pinchos.map((p) => p.id).sort().join("|");
+    }
 
     gPinchos.selectAll("g.mm-marca")
       .data(grupos, (g) => g.clave)
       .join((entra) => entra.append("g").each(function (g) {
         const sel = d3.select(this).attr("tabindex", 0).attr("role", "button");
-        if (g.pinchos.length === 1) {
+        if (g.polaroid) {
+          polaroid(sel, g.pinchos[0]);
+        } else if (g.pinchos.length === 1) {
           cuerpoPincho(sel.append("g").attr("class", "mm-cuerpo"));
           sel.append("circle").attr("class", "mm-toque").attr("cy", -14).attr("r", 18);
         } else {
