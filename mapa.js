@@ -5,7 +5,8 @@
 
 export const URL_GEOMETRIA = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json";
 export const RADIO_GRUPO = 24; // px: pinchos más cerca que esto en pantalla van juntos
-const ZOOM_MAXIMO = 40;
+const ZOOM_MAXIMO = 120;
+const RADIO_ZONA_KM = 9; // la mancha de un lugar sin contorno
 const ZOOM_PUNTO = 6;
 
 // ISO 3166-1: el código numérico (el id de world-atlas) → alfa-2 (el `pais` de la base)
@@ -69,6 +70,8 @@ const ESTILOS = `
 .mm-graticula { fill: none; stroke: var(--grat, rgba(15, 42, 58, .09)); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .mm-pais { fill: var(--tierra, #FAFBF8); stroke: var(--tierra-borde, #A9BEC7); stroke-width: .7; vector-effect: non-scaling-stroke; transition: fill .4s; }
 .mm-pais.mm-visitado { fill: var(--visitado, #F0B23E); stroke: var(--visitado-borde, #B9821A); }
+.mundi-mapa.mm-paises-suaves .mm-pais.mm-visitado { fill: color-mix(in srgb, var(--visitado, #F0B23E) 30%, var(--tierra, #FAFBF8)); stroke: var(--tierra-borde, #A9BEC7); }
+.mm-zona { fill: var(--visitado, #F0B23E); fill-opacity: .8; stroke: var(--visitado-borde, #B9821A); stroke-width: 1.2; vector-effect: non-scaling-stroke; pointer-events: none; }
 .mm-marca { cursor: pointer; }
 .mm-marca:focus { outline: none; }
 .mm-sombra { fill: var(--tinta, #0F2A3A); opacity: .22; }
@@ -130,7 +133,8 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     .attr("role", "group")
     .attr("aria-label", "Mapamundi con tus pinchos");
 
-  let W = 0, H = 0, proyeccion, camino, zoom, gMundo, gPinchos;
+  let W = 0, H = 0, proyeccion, camino, zoom, gMundo, gZonas, gPinchos;
+  let zonas = "no"; // "no", "circulo" o "contorno" (prueba)
   let t = d3.zoomIdentity;
   let vistaMundo = d3.zoomIdentity;
   let pinchos = [];
@@ -158,6 +162,7 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     gMundo.append("path").attr("class", "mm-oceano").attr("d", camino(esfera));
     gMundo.append("path").attr("class", "mm-graticula").attr("d", camino(d3.geoGraticule10()));
     gMundo.selectAll("path.mm-pais").data(paises).join("path").attr("class", "mm-pais").attr("d", camino);
+    gZonas = gMundo.append("g").attr("class", "mm-zonas");
     gPinchos = svg.append("g").attr("class", "mm-pinchos");
 
     // Vista inicial: el mundo entero si así ocupa al menos el 60 % del alto; si no (teléfono en vertical), de alto
@@ -182,6 +187,21 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     if (!gMundo) return;
     const visitados = new Set(pinchos.map((p) => p.pais).filter(Boolean));
     gMundo.selectAll("path.mm-pais").classed("mm-visitado", (d) => d.alfa2 !== null && visitados.has(d.alfa2));
+    svg.classed("mm-paises-suaves", zonas !== "no");
+    // La zona de cada lugar: su contorno real si lo trae (GeoJSON) o una mancha redonda alrededor del pincho
+    const formas = zonas === "no" ? [] : pinchos.map((p) =>
+      zonas === "contorno" && p.forma ? rebobinar(p.forma)
+        : d3.geoCircle().center([p.lon, p.lat]).radius(RADIO_ZONA_KM / 111.32)());
+    gZonas.selectAll("path.mm-zona").data(formas).join("path").attr("class", "mm-zona").attr("d", camino);
+  }
+
+  // d3 quiere los anillos exteriores en sentido horario; GeoJSON (RFC 7946) los trae al revés
+  function rebobinar(geom) {
+    const anillos = geom.type === "Polygon" ? [geom.coordinates] : geom.type === "MultiPolygon" ? geom.coordinates : [];
+    // Si el exterior sale «al revés» (más de medio mundo), se dan la vuelta todos sus anillos, también los huecos
+    const poligonos = anillos.map((pol) =>
+      d3.geoArea({ type: "Polygon", coordinates: [pol[0]] }) > 2 * Math.PI ? pol.map((anillo) => [...anillo].reverse()) : pol);
+    return { type: "MultiPolygon", coordinates: poligonos };
   }
 
   const enPantalla = (lat, lon) => t.apply(proyeccion([lon, lat]));
@@ -235,13 +255,13 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     }
   }
 
-  function transformacionPara(lista, margen) {
+  function transformacionPara(lista, margen, kPunto = ZOOM_PUNTO) {
     const puntos = lista.map((p) => proyeccion([p.lon, p.lat]));
     const [x0, x1] = d3.extent(puntos, (d) => d[0]);
     const [y0, y1] = d3.extent(puntos, (d) => d[1]);
     const [kMin, kMax] = zoom.scaleExtent();
     const ajuste = Math.min((W - margen * 2) / Math.max(x1 - x0, 1), (H - margen * 2) / Math.max(y1 - y0, 1));
-    const k = Math.max(kMin, Math.min(lista.length === 1 ? ZOOM_PUNTO : kMax, ajuste));
+    const k = Math.max(kMin, Math.min(lista.length === 1 ? kPunto : kMax, ajuste));
     return d3.zoomIdentity.translate(W / 2, H / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
   }
 
@@ -283,7 +303,8 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
   construir();
 
   return {
-    pintar(lista, { resaltar = null } = {}) {
+    pintar(lista, { resaltar = null, zonas: modoZonas } = {}) {
+      if (modoZonas) zonas = modoZonas;
       pinchos = Array.isArray(lista) ? lista.filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lon)) : [];
       resaltado = resaltar;
       gPinchos?.selectAll("g.mm-marca").remove(); // se vuelven a crear con el estado nuevo
@@ -295,8 +316,8 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
       if (!zoom) return;
       ir(pinchos.length ? transformacionPara(pinchos, 48) : vistaMundo);
     },
-    irA(lat, lon) {
-      if (zoom) ir(transformacionPara([{ lat, lon }], 70));
+    irA(lat, lon, k = ZOOM_PUNTO) {
+      if (zoom) ir(transformacionPara([{ lat, lon }], 70, k));
     },
     marcarPunto(lat, lon) {
       provisional = lat === null || lat === undefined ? null : { lat, lon };

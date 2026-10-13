@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prueba: el lugar en vez del país</title>
+<!-- Prueba de la rama prueba/lugares: pintar el lugar (mancha o contorno real de OpenStreetMap) en vez del país
+     entero. Lugares inventados; los contornos se piden a Nominatim al pulsar «Contorno real». -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Outfit:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="../../style.css">
+<style>
+  #mapa { position: fixed; inset: 0; background: var(--mar); }
+  #botones { position: fixed; top: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 2; }
+  #botones button { border: 1px solid var(--tierra-borde); background: var(--sup); color: var(--tinta); border-radius: 999px; padding: 5px 11px; font: 600 13px var(--f-texto); }
+  #botones button[aria-pressed="true"] { background: var(--tinta); color: var(--pared); }
+  #estado { position: fixed; left: 10px; bottom: 10px; z-index: 2; font: 12px var(--f-dato); color: var(--tinta-2); background: var(--sup); padding: 4px 8px; border-radius: 4px; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+</head>
+<body>
+<div id="mapa"></div>
+<div id="botones">
+  <button data-zonas="no">País entero</button>
+  <button data-zonas="circulo">Mancha</button>
+  <button data-zonas="contorno">Contorno real</button>
+  <button data-ir="mundo">Mundo</button>
+  <button data-ir="40.42,-3.70">Madrid</button>
+  <button data-ir="36.40,25.43">Santorini</button>
+  <button data-ir="-33.25,-71.1">Chile</button>
+</div>
+<div id="estado">Cargando…</div>
+<script type="module">
+  import { crearMapa } from "../../mapa.js";
+
+  // ?quieto: sin animaciones (como «reducir movimiento»), para hacer capturas sin esperar a las transiciones
+  if (new URLSearchParams(location.search).has("quieto")) {
+    const original = window.matchMedia.bind(window);
+    window.matchMedia = (q) => (q.includes("reduced-motion") ? { matches: true, media: q, addEventListener() {}, removeEventListener() {} } : original(q));
+  }
+
+  const estado = document.getElementById("estado");
+  const pinchos = [
+    { id: "p1", nombre: "Madrid", buscar: "Madrid, España", pais: "ES", lat: 40.4168, lon: -3.7038 },
+    { id: "p2", nombre: "París", buscar: "París, Francia", pais: "FR", lat: 48.8566, lon: 2.3522 },
+    { id: "p3", nombre: "Lyon", buscar: "Lyon, Francia", pais: "FR", lat: 45.764, lon: 4.8357 },
+    { id: "p4", nombre: "Santorini", buscar: "Santorini, Grecia", pais: "GR", lat: 36.3932, lon: 25.4615 },
+    { id: "p5", nombre: "Santiago", buscar: "Santiago, Región Metropolitana, Chile", pais: "CL", lat: -33.4489, lon: -70.6693 },
+    { id: "p6", nombre: "Valparaíso", buscar: "Valparaíso, Valparaíso, Chile", pais: "CL", lat: -33.0458, lon: -71.6197 },
+  ];
+  const mapa = await crearMapa(document.getElementById("mapa"));
+  let zonas = "no";
+  const pintar = () => {
+    mapa.pintar(pinchos, { zonas });
+    for (const b of document.querySelectorAll("[data-zonas]")) b.setAttribute("aria-pressed", String(b.dataset.zonas === zonas));
+  };
+  pintar();
+  mapa.encuadrar();
+  estado.textContent = "Listo";
+
+  let contornos = null;
+  async function pedirContornos() {
+    for (const p of pinchos) {
+      estado.textContent = `Pidiendo el contorno de ${p.nombre}…`;
+      const url = new URL("https://nominatim.openstreetmap.org/search");
+      url.search = new URLSearchParams({ q: p.buscar, format: "jsonv2", limit: "1", polygon_geojson: "1", polygon_threshold: "0.001", "accept-language": "es" });
+      try {
+        const [d] = await (await fetch(url)).json();
+        if (d && /Polygon/.test(d.geojson?.type)) p.forma = d.geojson;
+        p.puntos = d?.geojson ? JSON.stringify(d.geojson).length : 0;
+      } catch { /* se queda con la mancha */ }
+      await new Promise((r) => setTimeout(r, 1100)); // uso justo de Nominatim: una petición por segundo
+    }
+    estado.textContent = pinchos.map((p) => `${p.nombre}: ${p.forma ? Math.round(p.puntos / 1024) + " KB" : "mancha"}`).join(" · ");
+    window.contornos = pinchos.map((p) => ({ nombre: p.nombre, tipo: p.forma?.type ?? null, kb: Math.round((p.puntos ?? 0) / 1024) }));
+  }
+
+  for (const b of document.querySelectorAll("[data-zonas]")) {
+    b.addEventListener("click", async () => {
+      zonas = b.dataset.zonas;
+      if (zonas === "contorno" && !contornos) contornos = pedirContornos();
+      if (zonas === "contorno") await contornos;
+      pintar();
+    });
+  }
+  for (const b of document.querySelectorAll("[data-ir]")) {
+    b.addEventListener("click", () => {
+      if (b.dataset.ir === "mundo") return mapa.encuadrar();
+      const [lat, lon] = b.dataset.ir.split(",").map(Number);
+      mapa.irA(lat, lon, 45);
+    });
+  }
+  window.mapa = mapa;
+</script>
+</body>
+</html>
