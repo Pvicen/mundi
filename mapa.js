@@ -108,6 +108,8 @@ const ESTILOS = `
 .mm-sombra { fill: var(--tinta, #0F2A3A); opacity: .22; }
 .mm-aguja { stroke: var(--tinta-2, #4C6371); stroke-width: 1.6; stroke-linecap: round; }
 .mm-cabeza, .mm-grupo-fondo { fill: var(--pin, #E0352B); stroke: var(--sup, #FFFFFF); }
+/* Un sitio al que se quiere ir: otro color, y un grupo solo de deseos también */
+.mm-deseo .mm-cabeza, .mm-deseo .mm-grupo-fondo { fill: var(--deseo, #3D7A74); }
 .mm-cabeza { stroke-width: 1.2; }
 .mm-grupo-fondo { stroke-width: 2.5; }
 .mm-brillo { fill: #FFFFFF; opacity: .55; }
@@ -213,12 +215,16 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     return true;
   }
 
+  // Los «quiero ir» no cuentan como visitados: ni pintan su país ni su lugar
+  const esDeseo = (p) => p.estado === "quiero_ir";
+
   function colorear() {
     if (!gMundo) return;
-    const visitados = new Set(pinchos.map((p) => p.pais).filter(Boolean));
+    const estuve = pinchos.filter((p) => !esDeseo(p));
+    const visitados = new Set(estuve.map((p) => p.pais).filter(Boolean));
     gMundo.selectAll("path.mm-pais").classed("mm-visitado", (d) => d.alfa2 !== null && visitados.has(d.alfa2));
     // La zona de cada lugar: su contorno real si lo trae (GeoJSON) o una mancha redonda alrededor del pincho
-    const formas = pinchos.map((p) =>
+    const formas = estuve.map((p) =>
       p.forma ? rebobinar(p.forma) : d3.geoCircle().center([p.lon, p.lat]).radius(RADIO_ZONA_KM / 111.32)());
     gZonas.selectAll("path.mm-zona").data(formas).join("path").attr("class", "mm-zona").attr("d", camino);
   }
@@ -243,8 +249,9 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     const conFotos = t.k >= ZOOM_FOTOS;
     const grupos = agrupar(puntos, conFotos ? RADIO_GRUPO_FOTOS : RADIO_GRUPO);
     for (const g of grupos) {
-      g.polaroid = conFotos && g.pinchos.length === 1 && !!g.pinchos[0].portada;
-      g.clave = (g.polaroid ? "f:" : "p:") + g.pinchos.map((p) => p.id).sort().join("|");
+      g.polaroid = conFotos && g.pinchos.length === 1 && !!g.pinchos[0].portada && !esDeseo(g.pinchos[0]);
+      g.deseo = g.pinchos.every(esDeseo);
+      g.clave = (g.polaroid ? "f:" : g.deseo ? "d:" : "p:") + g.pinchos.map((p) => p.id).sort().join("|");
     }
 
     gPinchos.selectAll("g.mm-marca")
@@ -262,9 +269,10 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
           sel.append("circle").attr("class", "mm-toque").attr("cy", -12).attr("r", 20);
         }
       }))
-      .attr("class", (g) => "mm-marca" + (g.pinchos.length === 1 && g.pinchos[0].id === resaltado ? " mm-nuevo" : ""))
+      .attr("class", (g) => "mm-marca" + (g.deseo ? " mm-deseo" : "")
+        + (g.pinchos.length === 1 && g.pinchos[0].id === resaltado ? " mm-nuevo" : ""))
       .attr("aria-label", (g) => g.pinchos.length === 1
-        ? g.pinchos[0].nombre
+        ? g.pinchos[0].nombre + (g.deseo ? " (quiero ir)" : "")
         : `${g.pinchos.length} lugares: ${g.pinchos.map((p) => p.nombre).join(", ")}`)
       .attr("transform", (g) => `translate(${g.x.toFixed(1)},${g.y.toFixed(1)})`)
       .on("click", (e, g) => {
