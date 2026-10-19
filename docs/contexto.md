@@ -76,5 +76,9 @@ Vicente: «soy solo yo, y sigo lo que recomiendas y propones».
   PWA y Documentación hecho; Mapa e Interfaz hechos. Revisión final de GPT: tres vueltas, tres defectos de
   guardado y borrado arreglados y «CAJA APROBADA» sobre `04e1456`. **Publicada** el 12/10 en
   https://pvicen.github.io/mundi/ (repositorio público `Pvicen/mundi`). El estado de cada parte está en `README.md`.
+- **13/10:** copia de seguridad, filtro por año y diseño «Mapa de papel», publicados.
+- **19/10:** contornos reales, fotos como polaroids, «Quiero ir» con «Ya fui» y «Compartir» (puente con la App de
+  avisos, `docs/puente-avisos.md`), publicados tras tres vueltas de revisión de GPT («CAJA APROBADA» sobre `d941456`)
+  y tres SQL ejecutados (`2026-10-13-forma-y-miniatura.sql`, `2026-10-13-quiero-ir.sql`, `2026-10-13-forma-estricta.sql`).
 - Pendiente de Vicente: verificar cada Caja al terminarla y ejecutar el SQL en Supabase. Lo que tenga que pegar se
   le da completo y ya rellenado.
