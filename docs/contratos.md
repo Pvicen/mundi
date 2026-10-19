@@ -183,3 +183,11 @@ avisos está en `docs/puente-avisos.md`.
 - En la ficha, el país sale como sello «Quiero ir · País» y el botón «Ya fui» lo pasa a visitado con el mes de hoy.
 - En la ficha de cualquier pincho, «Compartir»: `navigator.share({ title: nombre, text: textoCompartir(pincho) })`;
   si el navegador no puede compartir, copia ese texto al portapapeles y lo dice.
+
+## Interfaz — instalar en el teléfono (añadido)
+
+- Cuando el navegador ofrece instalar la app (`beforeinstallprompt`, Chrome en Android), en la pantalla de entrar y
+  en el perfil aparece «Instalar Mundi», que lanza la instalación del navegador (`prompt()`, una vez).
+- Si no lo ofrece y la app no está instalada, la pantalla de entrar da una pista: en Chrome, menú ⋮ → «Instalar
+  app»; en iPhone, Compartir → «Añadir a pantalla de inicio».
+- Ya instalada (`display-mode: standalone`), no aparece nada. Al instalarse (`appinstalled`), lo dice.

@@ -18,6 +18,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | Diseño «Mapa de papel» (papel, sepia, ocre y rojo lacre; Fraunces y Outfit; versión oscura) | Hecho |
 | El lugar en vez del país (contorno real de OpenStreetMap o mancha) y fotos en el mapa como polaroids | Hecho |
 | «Quiero ir» (sitios pendientes, en otro color) y «Compartir» un lugar (también hacia la App de avisos) | Hecho |
+| Botón «Instalar Mundi» (al entrar y en el perfil; si el navegador no lo ofrece, una pista de cómo hacerlo) | Hecho |
 
 ## Cómo está hecha
 

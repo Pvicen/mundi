@@ -166,6 +166,46 @@ let turnoFotos = 0;
 let filtro = "todos"; // "todos", un año ("2025") o "sin-fecha"
 const urls = new Map(); // ruta → { url, hasta }
 
+/* ---------- Instalar en el teléfono ---------- */
+// Chrome avisa (beforeinstallprompt) cuando se puede instalar: se guarda el aviso y se lanza al pulsar el botón.
+// Si no hay aviso y no está instalada, una pista de cómo hacerlo a mano.
+let avisoInstalar = null;
+let recienInstalada = false; // instalada desde esta pestaña: la pista ya no hace falta
+const instalada = () =>
+  recienInstalada || matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const esIphone = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+function pintarInstalar() {
+  const puede = !!avisoInstalar && !instalada();
+  for (const boton of document.querySelectorAll(".boton-instalar")) boton.hidden = !puede;
+  const pista = $("#instalar-pista");
+  pista.hidden = puede || instalada();
+  pista.textContent = esIphone
+    ? "Para tenerla como app: botón Compartir → «Añadir a pantalla de inicio»."
+    : "Para tenerla como app: en Chrome, menú ⋮ → «Instalar app».";
+}
+
+async function instalar() {
+  const aviso = avisoInstalar;
+  if (!aviso) return;
+  avisoInstalar = null; // Chrome solo deja usarlo una vez
+  await aviso.prompt();
+  await aviso.userChoice.catch(() => null);
+  pintarInstalar();
+}
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault(); // sin la barra automática: se ofrece con el botón
+  avisoInstalar = e;
+  pintarInstalar();
+});
+window.addEventListener("appinstalled", () => {
+  avisoInstalar = null;
+  recienInstalada = true;
+  pintarInstalar();
+  avisar("Mundi instalada: ya la tienes con su icono.");
+});
+
 /* ---------- Pantallas ---------- */
 function mostrar(id) {
   for (const p of ["pantalla-carga", "pantalla-entrar", "pantalla-sin-acceso", "app"]) $("#" + p).hidden = p !== id;
@@ -173,6 +213,7 @@ function mostrar(id) {
 
 async function arrancar() {
   ponerEventos();
+  pintarInstalar();
   if ("serviceWorker" in navigator && !EN_LOCAL) navigator.serviceWorker.register("./sw.js").catch(() => {});
   try {
     yo = await datos.sesion();
@@ -1044,6 +1085,7 @@ function ponerEventos() {
   $("#sin-acceso-salir").addEventListener("click", salir);
   $("#salir").addEventListener("click", salir);
   $("#descargar-copia").addEventListener("click", descargarCopia);
+  for (const boton of document.querySelectorAll(".boton-instalar")) boton.addEventListener("click", instalar);
   $("#abrir-perfil").addEventListener("click", abrirPerfil);
   $("#encuadrar").addEventListener("click", () => mapa?.encuadrar());
   $("#abrir-nuevo").addEventListener("click", () => abrirForm());
