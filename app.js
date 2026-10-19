@@ -448,10 +448,18 @@ async function compartir() {
   }
 }
 
+// Mientras se cambia el estado de un pincho, su ficha no deja editar, borrar ni repetir «Ya fui»
+let cambiandoEstado = false;
+function bloquearFicha(si) {
+  cambiandoEstado = si;
+  for (const boton of ["#lugar-ya-fui", "#lugar-editar", "#lugar-borrar"]) $(boton).disabled = si;
+}
+
 // Un «quiero ir» al que ya fue: pasa a visitado con el mes de hoy
 async function yaFui() {
   const p = abierto;
-  if (!p || !esDeseo(p)) return;
+  if (!p || !esDeseo(p) || cambiandoEstado) return;
+  bloquearFicha(true);
   const hoy = new Date();
   const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-01`;
   try {
@@ -459,16 +467,19 @@ async function yaFui() {
     pinchos = ordenar(pinchos.map((x) => (x.id === nuevo.id ? nuevo : x)));
     if (filtro === "quiero-ir") filtro = "todos";
     pintar(nuevo.id);
-    abrirLugar(nuevo);
+    // Solo se repinta la ficha si sigue enseñando este lugar y no hay un formulario abierto encima
+    if (abierto?.id === nuevo.id && !form) abrirLugar(nuevo);
     avisar("¡A tu mapa! Edítalo para añadir fotos y el relato.");
   } catch (e) {
     avisar("No se pudo cambiar: " + e.message);
+  } finally {
+    bloquearFicha(false);
   }
 }
 
 async function borrarLugar() {
   const p = abierto;
-  if (!p || !confirm(`¿Borrar «${p.nombre}» y sus fotos? No se puede deshacer.`)) return;
+  if (cambiandoEstado || !p || !confirm(`¿Borrar «${p.nombre}» y sus fotos? No se puede deshacer.`)) return;
   try {
     // Las que cita la fila y todo lo que haya en su carpeta (p. ej., fotos subidas en un guardado que falló)
     const rutas = new Set([...(p.fotos ?? []), ...(await datos.fotosEn(`${yo.id}/${p.id}`))]);
@@ -850,12 +861,13 @@ async function guardar(e) {
       }
     }
 
-    let falloMiniatura = false;
+    let falloMiniatura = null; // null, "limpia" (no hay miniatura vieja apuntada) o "vieja" (no se pudo quitar)
     try {
       ponerEstado("Guardando…");
       p = await rehacerMiniatura(p, subidas);
     } catch {
-      // Sin la miniatura nueva, que la fila no apunte a una vieja (el mapa usa la primera foto entera)
+      // Sin la miniatura nueva, que la fila no apunte a una vieja (el mapa usa la primera foto entera); y se avisa
+      falloMiniatura = "limpia";
       try {
         if (p.miniatura && p.miniatura !== miniaturaEsperada(p)) {
           const vieja = p.miniatura;
@@ -863,7 +875,7 @@ async function guardar(e) {
           datos.quitarFotos([vieja]).catch(() => {});
         }
       } catch {
-        falloMiniatura = true;
+        falloMiniatura = "vieja";
       }
     }
 
@@ -875,7 +887,9 @@ async function guardar(e) {
       ponerEstado(null);
       ponerError(fallos
         ? `Se guardó el lugar, pero ${fallos} ${fallos === 1 ? "foto no se pudo" : "fotos no se pudieron"} subir. Pulsa Guardar para reintentarlo.`
-        : "Se guardó el lugar, pero la foto pequeña del mapa no se pudo poner al día. Pulsa Guardar para reintentarlo.");
+        : falloMiniatura === "limpia"
+          ? "Se guardó el lugar, pero la foto pequeña del mapa no se pudo hacer (mientras, el mapa usa la foto entera). Pulsa Guardar para reintentarlo."
+          : "Se guardó el lugar, pero la foto pequeña del mapa no se pudo poner al día. Pulsa Guardar para reintentarlo.");
       pintarFotosForm();
       pintar();
       return;
@@ -1041,7 +1055,9 @@ function ponerEventos() {
   $("#cancelar-elegir").addEventListener("click", cancelarElegir);
   $("#velo").addEventListener("click", () => cerrarHojas());
   for (const b of document.querySelectorAll(".hoja .cerrar")) b.addEventListener("click", () => cerrarHojas());
-  $("#lugar-editar").addEventListener("click", () => abrirForm(abierto));
+  $("#lugar-editar").addEventListener("click", () => {
+    if (!cambiandoEstado) abrirForm(abierto);
+  });
   $("#lugar-borrar").addEventListener("click", borrarLugar);
   $("#lugar-compartir").addEventListener("click", compartir);
   $("#lugar-ya-fui").addEventListener("click", yaFui);
