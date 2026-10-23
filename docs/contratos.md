@@ -218,8 +218,11 @@ Ficheros nuevos: `datos/limites.json` (lo genera `setup/limites.mjs` desde Natur
   país, el nombre y «fecha · N fotos»; debajo, el relato con capitular, las demás fotos como polaroids (cada una abre
   el visor en ella), las coordenadas y los botones de siempre («Ya fui», Compartir, Editar, Borrar). Sin fotos, la
   portada es un bloque de color (sepia; verde si es «Quiero ir»). Arriba, «←» vuelve al mapa y otro botón comparte.
-- **El «atrás» del teléfono:** abrir la ficha añade un paso al historial (`history.pushState`). Con el visor o una
-  hoja abiertos encima, «atrás» cierra eso y la ficha sigue; si no, cierra la ficha y vuelve al mapa. Cerrarla con
-  «←», Escape o al borrar gasta ese paso (`history.back()`), para que el siguiente «atrás» no la pida otra vez.
+- **El «atrás» del teléfono:** mientras haya algo abierto encima del mapa (la ficha, una hoja —formulario o perfil—,
+  el visor o «Toca el lugar en el mapa») la app tiene un paso propio en el historial (`history.pushState`). «Atrás»
+  cierra lo de más arriba (visor, «Toca el lugar…», hoja y, por último, la ficha) en vez de salir de Mundi; si queda
+  algo abierto, el paso vuelve. **Mientras se guarda un lugar, «atrás» no cierra nada:** avisa «Espera a que termine
+  de guardarse» y el paso vuelve. Cuando ya no queda nada abierto (con «←», la ✕, Escape, al guardar o al borrar), la
+  app gasta su paso (`history.back()`), para que el siguiente «atrás» no pida nada.
 - **Editar** abre el formulario encima de la ficha; al guardar, la ficha enseña los cambios. «Elegir en el mapa»
   cierra la ficha para dejar ver el mapa (al guardar se queda en el mapa). Borrar cierra la ficha.

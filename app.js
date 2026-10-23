@@ -408,6 +408,7 @@ function abrirHoja(id) {
   const hoja = $("#" + id);
   hoja.classList.add("abierta");
   hoja.querySelector(".contenido").scrollTop = 0;
+  ajustarHistorial();
 }
 
 function cerrarHojas({ conservarForm = false } = {}) {
@@ -415,6 +416,7 @@ function cerrarHojas({ conservarForm = false } = {}) {
   for (const h of document.querySelectorAll(".hoja.abierta")) h.classList.remove("abierta");
   $("#velo").hidden = true;
   if (!conservarForm) descartarForm();
+  ajustarHistorial();
 }
 
 /* ---------- Fotos firmadas ---------- */
@@ -434,10 +436,52 @@ async function firmar(rutas) {
   return Object.fromEntries(rutas.filter((r) => urls.has(r)).map((r) => [r, urls.get(r).url]));
 }
 
-/* ---------- Ficha de un lugar: una pantalla aparte ---------- */
-// Al abrirla se añade un paso al historial: el «atrás» del teléfono la cierra y vuelve al mapa en vez de salir
-let pasoFicha = false; // hay en el historial un paso de la ficha que aún no se ha gastado
+/* ---------- El «atrás» del teléfono ---------- */
+// Mientras haya algo abierto encima del mapa (la ficha, una hoja, el visor o «Toca el lugar en el mapa»), la app
+// tiene un paso propio en el historial: el «atrás» cierra lo de más arriba en vez de salir de Mundi y, mientras se
+// guarda un lugar, no cierra nada
+let pasoPropio = false; // hay en el historial un paso de la app que aún no se ha gastado
+let atrasPropios = 0; // los history.back() que hace la propia app: su popstate no es un «atrás» del usuario
+let ajustePendiente = false;
 const fichaAbierta = () => $("#ficha").classList.contains("abierta");
+const hayAlgoEncima = () =>
+  fichaAbierta() || !!document.querySelector(".hoja.abierta") || !$("#visor").hidden || elegirEnMapa || !!form?.guardando;
+
+// Pone o gasta el paso según lo que quede abierto. Se decide al terminar la tarea en curso, cuando ya se ha cerrado y
+// abierto todo lo que tocaba (cerrar el perfil y abrir una ficha a la vez es seguir con algo abierto)
+function ajustarHistorial() {
+  if (ajustePendiente) return;
+  ajustePendiente = true;
+  queueMicrotask(() => {
+    ajustePendiente = false;
+    const queda = hayAlgoEncima();
+    if (queda && !pasoPropio) {
+      history.pushState({ mundi: "capa" }, "");
+      pasoPropio = true;
+    } else if (!queda && pasoPropio) {
+      pasoPropio = false;
+      atrasPropios++;
+      history.back();
+    }
+  });
+}
+
+function alVolver() {
+  if (atrasPropios > 0) {
+    atrasPropios--;
+    return;
+  }
+  if (!pasoPropio) return; // no era un paso de la app
+  pasoPropio = false; // el usuario lo acaba de gastar
+  if (form?.guardando) avisar("Espera a que termine de guardarse.");
+  else if (!$("#visor").hidden) cerrarVisor();
+  else if (elegirEnMapa) cancelarElegir();
+  else if (document.querySelector(".hoja.abierta")) cerrarHojas();
+  else cerrarFicha();
+  ajustarHistorial(); // si sigue abierto algo, su paso vuelve
+}
+
+/* ---------- Ficha de un lugar: una pantalla aparte ---------- */
 
 let fotosFicha = []; // los enlaces de las fotos que enseña la ficha, para el visor
 async function abrirLugar(p) {
@@ -465,10 +509,7 @@ async function abrirLugar(p) {
     ficha.scrollTop = 0;
     ficha.classList.add("abierta");
     ficha.setAttribute("aria-hidden", "false");
-    if (!pasoFicha) {
-      history.pushState({ mundi: "ficha" }, "");
-      pasoFicha = true;
-    }
+    ajustarHistorial();
     setTimeout(() => { if (fichaAbierta()) $("#lugar-volver").focus({ preventScroll: true }); }, 340);
   }
   if (!nFotos) return;
@@ -494,34 +535,13 @@ async function abrirLugar(p) {
   }));
 }
 
-// Cierra la ficha; si su paso sigue en el historial, se gasta (el «atrás» de después no la vuelve a pedir)
 function cerrarFicha() {
   if (!fichaAbierta()) return;
   const ficha = $("#ficha");
   ficha.classList.remove("abierta");
   ficha.setAttribute("aria-hidden", "true");
   abierto = null;
-  if (pasoFicha) {
-    pasoFicha = false;
-    history.back();
-  }
-}
-
-// El «atrás» del teléfono: cierra lo que esté encima (el visor o una hoja) y, si no hay nada, la ficha
-function alVolver() {
-  if (!pasoFicha) return; // el paso no era de la ficha
-  if (!$("#visor").hidden || document.querySelector(".hoja.abierta")) {
-    if (!$("#visor").hidden) cerrarVisor();
-    else cerrarHojas();
-    history.pushState({ mundi: "ficha" }, ""); // la ficha sigue abierta: su paso vuelve al historial
-    return;
-  }
-  pasoFicha = false;
-  if (fichaAbierta()) {
-    $("#ficha").classList.remove("abierta");
-    $("#ficha").setAttribute("aria-hidden", "true");
-    abierto = null;
-  }
+  ajustarHistorial();
 }
 
 // Compartir (Contrato «Puente con la App de avisos»): nombre y enlace de mapa; sin navigator.share, al portapapeles
@@ -603,11 +623,13 @@ function abrirVisor(lista, inicio) {
   $("#visor").hidden = false;
   requestAnimationFrame(() => { caja.scrollLeft = inicio * caja.clientWidth; });
   $("#visor-cerrar").focus();
+  ajustarHistorial();
 }
 
 function cerrarVisor() {
   $("#visor").hidden = true;
   $("#visor-fotos").replaceChildren();
+  ajustarHistorial();
 }
 
 /* ---------- Formulario: nuevo lugar o editar ---------- */
@@ -755,6 +777,7 @@ function cancelarElegir() {
   elegirEnMapa = false;
   $("#aviso-elegir").hidden = true;
   if (form) abrirHoja("hoja-form");
+  ajustarHistorial();
 }
 
 function tocarPunto({ lat, lon, pais }) {
