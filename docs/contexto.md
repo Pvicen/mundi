@@ -80,5 +80,10 @@ Vicente: «soy solo yo, y sigo lo que recomiendas y propones».
 - **19/10:** contornos reales, fotos como polaroids, «Quiero ir» con «Ya fui» y «Compartir» (puente con la App de
   avisos, `docs/puente-avisos.md`), publicados tras tres vueltas de revisión de GPT («CAJA APROBADA» sobre `d941456`)
   y tres SQL ejecutados (`2026-10-13-forma-y-miniatura.sql`, `2026-10-13-quiero-ir.sql`, `2026-10-13-forma-estricta.sql`).
+- **19/10:** botón «Instalar Mundi», publicado.
+- **23/10, ideas de su suegro:** de lejos un punto por país y, al acercar, las líneas grises de regiones y provincias
+  (camino A: el mismo mapa de papel); la ficha de un lugar como pantalla aparte (diseño «Diario») con el «atrás» del
+  teléfono. Publicados tras dos vueltas de revisión de GPT (un defecto del «atrás» arreglado; «CAJA APROBADA» sobre
+  `ad4ae4c`). Sin SQL. Pendiente: el logo (Vicente elige) y la cuenta de su suegro, con su propio mapa.
 - Pendiente de Vicente: verificar cada Caja al terminarla y ejecutar el SQL en Supabase. Lo que tenga que pegar se
   le da completo y ya rellenado.
