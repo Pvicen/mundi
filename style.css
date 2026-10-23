@@ -258,16 +258,36 @@ textarea.entrada { resize: vertical; min-height: 90px; font-family: var(--f-titu
   float: left; font-family: var(--f-titulo); font-weight: 800; font-size: 3.2em; line-height: .82;
   padding: 5px 8px 0 0; color: var(--pin);
 }
-.polaroids { display: grid; gap: 24px; padding: 4px 8px; }
+/* En la ficha, solo una muestra (hasta tres polaroids pequeñas) y el botón a la pantalla de todas las fotos */
+.fotos-ficha { display: grid; gap: 14px; justify-items: center; }
+.polaroids { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 6px 4px; }
 .polaroids:empty { display: none; }
 .polaroid {
-  display: block; width: 100%; margin: 0; padding: 10px 10px 0; border: 0; border-radius: 2px;
-  background: var(--postal); box-shadow: var(--sombra-postal); cursor: zoom-in; text-align: center;
+  display: block; width: 100%; margin: 0; padding: 5px 5px 16px; border: 0; border-radius: 2px;
+  background: var(--postal); box-shadow: var(--sombra-postal); cursor: zoom-in;
 }
-.polaroid:nth-child(odd) { transform: rotate(-1.4deg); }
-.polaroid:nth-child(even) { transform: rotate(1.2deg); }
-.polaroid img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--sup-2); }
-.polaroid span { display: block; padding: 9px 0 11px; font-family: var(--f-titulo); font-style: italic; font-weight: 600; font-size: 14px; color: #3B2F22; }
+.polaroid:nth-child(odd) { transform: rotate(-2deg); }
+.polaroid:nth-child(even) { transform: rotate(1.6deg); }
+.polaroid img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--sup-2); }
+
+/* La pantalla de todas las fotos de un lugar */
+.pantalla-fotos { background: var(--pared); }
+.fotos-cabecera {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 12px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px 12px;
+  background: var(--pared); border-bottom: 1px dashed var(--tierra-borde);
+}
+.fotos-cabecera > div { min-width: 0; }
+.fotos-titulo { margin: 0; font-family: var(--f-titulo); font-weight: 800; font-size: 22px; line-height: 1.1; overflow-wrap: anywhere; }
+.rejilla-fotos {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; max-width: 720px; margin: 0 auto;
+  padding: 12px 12px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+.celda-foto {
+  padding: 0; border: 4px solid var(--postal); border-radius: 2px; aspect-ratio: 1; overflow: hidden;
+  background: var(--sup-2); box-shadow: 0 1px 4px rgba(59, 47, 34, .25); cursor: zoom-in;
+}
+.celda-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13.5px; color: var(--tinta-2); }
 /* «Estuve aquí» o «Quiero ir» en el formulario */
 .segmentos { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--tierra-borde); border-radius: 999px; padding: 3px; gap: 3px; }

@@ -110,7 +110,10 @@
     </div>
     <div class="ficha-cuerpo">
       <p class="relato capitular" id="lugar-relato"></p>
-      <div class="polaroids" id="lugar-fotos"></div>
+      <div class="fotos-ficha" id="lugar-fotos-bloque" hidden>
+        <div class="polaroids" id="lugar-fotos"></div>
+        <button class="boton-suave" id="lugar-ver-fotos" type="button">Ver las fotos</button>
+      </div>
       <p class="coords" id="lugar-coords"></p>
       <div class="acciones">
         <button class="boton-principal pequeno" id="lugar-ya-fui" type="button" hidden>Ya fui</button>
@@ -119,6 +122,18 @@
         <button class="boton-suave peligro" id="lugar-borrar" type="button">Borrar</button>
       </div>
     </div>
+  </section>
+
+  <!-- Todas las fotos de un lugar: otra pantalla, encima de la ficha -->
+  <section class="ficha pantalla-fotos" id="pantalla-fotos" role="dialog" aria-modal="true" aria-labelledby="fotos-titulo" aria-hidden="true">
+    <header class="fotos-cabecera">
+      <button class="boton-icono" id="fotos-volver" type="button" aria-label="Volver a la ficha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div>
+        <h2 class="fotos-titulo" id="fotos-titulo"></h2>
+        <p class="suave" id="fotos-cuantas"></p>
+      </div>
+    </header>
+    <div class="rejilla-fotos" id="rejilla-fotos"></div>
   </section>
 
   <!-- Nuevo lugar / editar -->

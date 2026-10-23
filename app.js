@@ -437,15 +437,16 @@ async function firmar(rutas) {
 }
 
 /* ---------- El «atrás» del teléfono ---------- */
-// Mientras haya algo abierto encima del mapa (la ficha, una hoja, el visor o «Toca el lugar en el mapa»), la app
-// tiene un paso propio en el historial: el «atrás» cierra lo de más arriba en vez de salir de Mundi y, mientras se
-// guarda un lugar, no cierra nada
+// Mientras haya algo abierto encima del mapa (la ficha, sus fotos, una hoja, el visor o «Toca el lugar en el mapa»),
+// la app tiene un paso propio en el historial: el «atrás» cierra lo de más arriba en vez de salir de Mundi y,
+// mientras se guarda un lugar, no cierra nada
 let pasoPropio = false; // hay en el historial un paso de la app que aún no se ha gastado
 let atrasPropios = 0; // los history.back() que hace la propia app: su popstate no es un «atrás» del usuario
 let ajustePendiente = false;
 const fichaAbierta = () => $("#ficha").classList.contains("abierta");
-const hayAlgoEncima = () =>
-  fichaAbierta() || !!document.querySelector(".hoja.abierta") || !$("#visor").hidden || elegirEnMapa || !!form?.guardando;
+const fotosAbiertas = () => $("#pantalla-fotos").classList.contains("abierta");
+const hayAlgoEncima = () => fichaAbierta() || fotosAbiertas() || !!document.querySelector(".hoja.abierta")
+  || !$("#visor").hidden || elegirEnMapa || !!form?.guardando;
 
 // Pone o gasta el paso según lo que quede abierto. Se decide al terminar la tarea en curso, cuando ya se ha cerrado y
 // abierto todo lo que tocaba (cerrar el perfil y abrir una ficha a la vez es seguir con algo abierto)
@@ -477,6 +478,7 @@ function alVolver() {
   else if (!$("#visor").hidden) cerrarVisor();
   else if (elegirEnMapa) cancelarElegir();
   else if (document.querySelector(".hoja.abierta")) cerrarHojas();
+  else if (fotosAbiertas()) cerrarFotos();
   else cerrarFicha();
   ajustarHistorial(); // si sigue abierto algo, su paso vuelve
 }
@@ -499,6 +501,7 @@ async function abrirLugar(p) {
   $("#lugar-coords").textContent = coordenadas(p.lat, p.lon);
   $("#lugar-ya-fui").hidden = !esDeseo(p);
   $("#lugar-fotos").replaceChildren();
+  $("#lugar-fotos-bloque").hidden = true;
   fotosFicha = [];
   portada.style.backgroundImage = "";
   portada.classList.toggle("con-foto", nFotos > 0);
@@ -520,27 +523,58 @@ async function abrirLugar(p) {
   if (!fotosFicha.length) return;
   // Entre comillas y con las comillas y barras escapadas, venga el enlace como venga
   portada.style.backgroundImage = `url("${fotosFicha[0].replace(/["\\]/g, "\\$&")}")`;
-  $("#lugar-fotos").replaceChildren(...fotosFicha.slice(1).map((url, i) => {
-    const boton = el("button", "polaroid");
-    boton.type = "button";
-    boton.setAttribute("aria-label", `Ver la foto ${i + 2} de ${fotosFicha.length}`);
-    const img = el("img");
-    img.src = url;
-    img.alt = "";
-    img.loading = "lazy";
-    img.decoding = "async";
-    boton.append(img, el("span", null, `${p.nombre} · ${i + 2} de ${fotosFicha.length}`));
-    boton.addEventListener("click", () => abrirVisor(fotosFicha, i + 1));
-    return boton;
-  }));
+  if (fotosFicha.length < 2) return;
+  // En la ficha, solo una muestra: hasta tres polaroids después de la portada; todas, en su propia pantalla
+  $("#lugar-fotos").replaceChildren(...fotosFicha.slice(1, 1 + MUESTRA_FOTOS).map((url, i) =>
+    botonFoto("polaroid", url, i + 1)));
+  $("#lugar-ver-fotos").textContent = `Ver las ${fotosFicha.length} fotos`;
+  $("#lugar-fotos-bloque").hidden = false;
+}
+
+const MUESTRA_FOTOS = 3;
+function botonFoto(clase, url, indice) {
+  const boton = el("button", clase);
+  boton.type = "button";
+  boton.setAttribute("aria-label", `Ver la foto ${indice + 1} de ${fotosFicha.length}`);
+  const img = el("img");
+  img.src = url;
+  img.alt = "";
+  img.loading = "lazy";
+  img.decoding = "async";
+  boton.append(img);
+  boton.addEventListener("click", () => abrirVisor(fotosFicha, indice));
+  return boton;
 }
 
 function cerrarFicha() {
   if (!fichaAbierta()) return;
+  cerrarFotos();
   const ficha = $("#ficha");
   ficha.classList.remove("abierta");
   ficha.setAttribute("aria-hidden", "true");
   abierto = null;
+  ajustarHistorial();
+}
+
+// Todas las fotos del lugar de la ficha, en otra pantalla encima de ella
+function abrirFotos() {
+  if (!abierto || !fotosFicha.length) return;
+  $("#fotos-titulo").textContent = abierto.nombre;
+  $("#fotos-cuantas").textContent = `${fotosFicha.length} ${fotosFicha.length === 1 ? "foto" : "fotos"}`;
+  $("#rejilla-fotos").replaceChildren(...fotosFicha.map((url, i) => botonFoto("celda-foto", url, i)));
+  const pantalla = $("#pantalla-fotos");
+  pantalla.scrollTop = 0;
+  pantalla.classList.add("abierta");
+  pantalla.setAttribute("aria-hidden", "false");
+  ajustarHistorial();
+  setTimeout(() => { if (fotosAbiertas()) $("#fotos-volver").focus({ preventScroll: true }); }, 340);
+}
+
+function cerrarFotos() {
+  if (!fotosAbiertas()) return;
+  const pantalla = $("#pantalla-fotos");
+  pantalla.classList.remove("abierta");
+  pantalla.setAttribute("aria-hidden", "true");
   ajustarHistorial();
 }
 
@@ -1186,6 +1220,8 @@ function ponerEventos() {
   $("#lugar-compartir").addEventListener("click", compartir);
   $("#lugar-compartir-arriba").addEventListener("click", compartir);
   $("#lugar-volver").addEventListener("click", cerrarFicha);
+  $("#lugar-ver-fotos").addEventListener("click", abrirFotos);
+  $("#fotos-volver").addEventListener("click", cerrarFotos);
   $("#lugar-portada").addEventListener("click", (e) => {
     if (!e.target.closest("button") && fotosFicha.length) abrirVisor(fotosFicha, 0);
   });
@@ -1221,6 +1257,7 @@ function ponerEventos() {
     if (!$("#visor").hidden) cerrarVisor();
     else if (elegirEnMapa) cancelarElegir();
     else if (document.querySelector(".hoja.abierta")) cerrarHojas();
+    else if (fotosAbiertas()) cerrarFotos();
     else cerrarFicha();
   });
 }
