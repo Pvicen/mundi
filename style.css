@@ -19,6 +19,9 @@
   --postal: #FFFFFF;
   --grat: rgba(138, 110, 75, .2);
   --limite: #A39A8E;
+  --sobre-foto: #FFFFFF;
+  --velo-foto: rgba(18, 14, 9, .38);
+  --sombra-postal: 0 6px 18px rgba(59, 47, 34, .22);
   --sombra-hoja: 0 -10px 30px rgba(59, 47, 34, .18);
   --sombra-boton: 0 2px 8px rgba(59, 47, 34, .14);
   --velo: rgba(59, 47, 34, .35);
@@ -35,6 +38,7 @@
     --sup: #241E16; --sup-2: #2D261C; --linea: #3D3326; --postal: #EDE3CF;
     --grat: rgba(241, 230, 208, .08);
     --limite: #857B6E;
+    --sombra-postal: 0 6px 18px rgba(0, 0, 0, .45);
     --sombra-hoja: 0 -10px 30px rgba(0, 0, 0, .5); --sombra-boton: 0 2px 8px rgba(0, 0, 0, .4);
     --velo: rgba(0, 0, 0, .5);
     color-scheme: dark;
@@ -189,9 +193,9 @@ textarea.entrada { resize: vertical; min-height: 90px; font-family: var(--f-titu
 .subir:focus-within { outline: 2px solid var(--pin); outline-offset: 2px; }
 
 /* Hojas que suben desde abajo */
-.velo { position: fixed; inset: 0; background: var(--velo); z-index: 4; }
+.velo { position: fixed; inset: 0; background: var(--velo); z-index: 5; }
 .hoja {
-  position: fixed; left: 0; right: 0; bottom: 0; max-height: 88%; z-index: 5;
+  position: fixed; left: 0; right: 0; bottom: 0; max-height: 88%; z-index: 6;
   display: flex; flex-direction: column; margin: 0 auto; max-width: 560px;
   background: var(--sup); border-radius: 18px 18px 0 0; border-top: 1px solid var(--linea); box-shadow: var(--sombra-hoja);
   transform: translateY(105%); visibility: hidden;
@@ -209,24 +213,60 @@ textarea.entrada { resize: vertical; min-height: 90px; font-family: var(--f-titu
   padding: 8px 18px calc(22px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 12px;
 }
 
-/* Ficha de un lugar: las fotos como postales y el país como un sello */
-.carrusel {
-  display: grid; grid-auto-flow: column; grid-auto-columns: 100%; gap: 12px; overflow-x: auto;
-  scroll-snap-type: x mandatory; scrollbar-width: none; padding: 4px 2px 6px;
+/* Ficha de un lugar: una pantalla aparte que entra desde la derecha, como la página de un diario. Arriba, la primera
+   foto a media pantalla con el nombre encima; debajo, el relato y las demás fotos como polaroids */
+.ficha {
+  position: fixed; inset: 0; z-index: 4; background: var(--sup);
+  overflow-y: auto; overscroll-behavior: contain;
+  transform: translateX(100%); visibility: hidden;
+  transition: transform .32s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .32s;
 }
-.carrusel::-webkit-scrollbar { display: none; }
-.carrusel:empty { display: none; }
-.foto {
-  aspect-ratio: 4 / 3; border: 7px solid var(--postal); padding: 0; border-radius: 2px; overflow: hidden;
-  background: var(--sup-2); scroll-snap-align: start; display: block; width: 100%;
-  box-shadow: 0 2px 8px rgba(59, 47, 34, .25);
+.ficha.abierta { transform: none; visibility: visible; transition: transform .32s cubic-bezier(.2, .8, .2, 1); }
+.portada {
+  position: relative; height: 62%; min-height: 320px; display: flex; align-items: flex-end;
+  background-color: var(--tinta); background-size: cover; background-position: center; color: var(--sobre-foto);
 }
-.foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.portada.con-foto { cursor: zoom-in; }
+.portada.sin-foto { height: auto; min-height: 0; padding-top: calc(72px + env(safe-area-inset-top, 0px)); }
+.portada.deseo { background-color: var(--deseo); }
+.portada::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(18, 14, 9, .35) 0%, rgba(18, 14, 9, 0) 28%, rgba(18, 14, 9, 0) 45%, rgba(18, 14, 9, .78) 100%);
+}
+.portada.sin-foto::after { background: radial-gradient(circle at 75% 20%, rgba(255, 255, 255, .16), rgba(255, 255, 255, 0) 60%); }
+.portada > * { position: relative; z-index: 1; }
+.portada .flotante {
+  position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 2;
+  background: var(--velo-foto); border-color: transparent; color: var(--sobre-foto);
+}
+.portada .izquierda { left: 12px; }
+.portada .derecha { right: 12px; }
+.portada-texto { width: 100%; max-width: 640px; margin: 0 auto; padding: 0 18px 20px; display: grid; gap: 7px; }
+.portada .sello { border-color: var(--sobre-foto); color: var(--sobre-foto); }
 .lugar-titulo {
-  margin: 0; padding-right: 40px; font-family: var(--f-titulo); font-weight: 800; font-size: 30px;
-  letter-spacing: -.015em; line-height: 1.05; overflow-wrap: anywhere;
+  margin: 0; font-family: var(--f-titulo); font-weight: 800; font-size: 40px; line-height: 1; letter-spacing: -.02em;
+  text-wrap: balance; overflow-wrap: anywhere; text-shadow: 0 2px 14px rgba(0, 0, 0, .35);
 }
-.carrusel:not(:empty) + .lugar-titulo { padding-right: 0; }
+.portada-cuando { margin: 0; font-size: 14px; font-weight: 600; }
+.portada-cuando:empty { display: none; }
+.ficha-cuerpo {
+  width: 100%; max-width: 640px; margin: 0 auto; display: grid; gap: 20px;
+  padding: 20px 18px calc(28px + env(safe-area-inset-bottom, 0px));
+}
+.capitular::first-letter {
+  float: left; font-family: var(--f-titulo); font-weight: 800; font-size: 3.2em; line-height: .82;
+  padding: 5px 8px 0 0; color: var(--pin);
+}
+.polaroids { display: grid; gap: 24px; padding: 4px 8px; }
+.polaroids:empty { display: none; }
+.polaroid {
+  display: block; width: 100%; margin: 0; padding: 10px 10px 0; border: 0; border-radius: 2px;
+  background: var(--postal); box-shadow: var(--sombra-postal); cursor: zoom-in; text-align: center;
+}
+.polaroid:nth-child(odd) { transform: rotate(-1.4deg); }
+.polaroid:nth-child(even) { transform: rotate(1.2deg); }
+.polaroid img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--sup-2); }
+.polaroid span { display: block; padding: 9px 0 11px; font-family: var(--f-titulo); font-style: italic; font-weight: 600; font-size: 14px; color: #3B2F22; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13.5px; color: var(--tinta-2); }
 /* «Estuve aquí» o «Quiero ir» en el formulario */
 .segmentos { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--tierra-borde); border-radius: 999px; padding: 3px; gap: 3px; }
@@ -289,5 +329,5 @@ textarea.entrada { resize: vertical; min-height: 90px; font-family: var(--f-titu
 .aviso.visible { transform: none; opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  .hoja, .hoja.abierta, .aviso { transition: none; }
+  .hoja, .hoja.abierta, .ficha, .ficha.abierta, .aviso { transition: none; }
 }

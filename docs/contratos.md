@@ -210,3 +210,16 @@ Ficheros nuevos: `datos/limites.json` (lo genera `setup/limites.mjs` desde Natur
   `pais`, el código ISO de 3 letras; `z`, el zoom web de Natural Earth; cada línea, en milésimas de grado y en
   diferencias: `[lon0, lat0, dlon1, dlat1, …]`. Se pide (junto a `mapa.js`) la primera vez que hace falta; si no
   llega, el mapa sigue sin líneas y lo vuelve a pedir como pronto al minuto. Lo que no tenga esa forma se ignora.
+
+## Interfaz — la ficha como pantalla aparte (añadido)
+
+- Tocar un pincho (o un lugar del perfil) abre su ficha como **una pantalla aparte** que entra desde la derecha y
+  tapa el mapa, diseño «Diario»: arriba, la primera foto a media pantalla (tocarla abre el visor) con el sello del
+  país, el nombre y «fecha · N fotos»; debajo, el relato con capitular, las demás fotos como polaroids (cada una abre
+  el visor en ella), las coordenadas y los botones de siempre («Ya fui», Compartir, Editar, Borrar). Sin fotos, la
+  portada es un bloque de color (sepia; verde si es «Quiero ir»). Arriba, «←» vuelve al mapa y otro botón comparte.
+- **El «atrás» del teléfono:** abrir la ficha añade un paso al historial (`history.pushState`). Con el visor o una
+  hoja abiertos encima, «atrás» cierra eso y la ficha sigue; si no, cierra la ficha y vuelve al mapa. Cerrarla con
+  «←», Escape o al borrar gasta ese paso (`history.back()`), para que el siguiente «atrás» no la pida otra vez.
+- **Editar** abre el formulario encima de la ficha; al guardar, la ficha enseña los cambios. «Elegir en el mapa»
+  cierra la ficha para dejar ver el mapa (al guardar se queda en el mapa). Borrar cierra la ficha.

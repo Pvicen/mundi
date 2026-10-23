@@ -97,15 +97,21 @@
   <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
   <div class="velo" id="velo" hidden></div>
 
-  <!-- Ficha de un lugar -->
-  <section class="hoja" id="hoja-lugar" role="dialog" aria-modal="true" aria-labelledby="lugar-titulo">
-    <div class="asa" aria-hidden="true"></div>
-    <button class="cerrar" type="button" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    <div class="contenido">
-      <div class="carrusel" id="lugar-fotos"></div>
-      <h2 class="lugar-titulo" id="lugar-titulo"></h2>
-      <div class="meta" id="lugar-meta"></div>
-      <p class="relato" id="lugar-relato"></p>
+  <!-- Ficha de un lugar: una pantalla aparte, como la página de un diario -->
+  <section class="ficha" id="ficha" role="dialog" aria-modal="true" aria-labelledby="lugar-titulo" aria-hidden="true">
+    <div class="portada" id="lugar-portada">
+      <button class="boton-icono flotante izquierda" id="lugar-volver" type="button" aria-label="Volver al mapa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <button class="boton-icono flotante derecha" id="lugar-compartir-arriba" type="button" aria-label="Compartir"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></button>
+      <div class="portada-texto">
+        <div class="meta" id="lugar-meta"></div>
+        <h2 class="lugar-titulo" id="lugar-titulo"></h2>
+        <p class="portada-cuando" id="lugar-cuando"></p>
+      </div>
+    </div>
+    <div class="ficha-cuerpo">
+      <p class="relato capitular" id="lugar-relato"></p>
+      <div class="polaroids" id="lugar-fotos"></div>
+      <p class="coords" id="lugar-coords"></p>
       <div class="acciones">
         <button class="boton-principal pequeno" id="lugar-ya-fui" type="button" hidden>Ya fui</button>
         <button class="boton-suave" id="lugar-compartir" type="button">Compartir</button>

@@ -20,6 +20,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | «Quiero ir» (sitios pendientes, en otro color) y «Compartir» un lugar (también hacia la App de avisos) | Hecho |
 | Botón «Instalar Mundi» (al entrar y en el perfil; si el navegador no lo ofrece, una pista de cómo hacerlo) | Hecho |
 | De lejos, un punto por país; al acercar, los pinchos y las líneas grises de regiones y provincias | Hecho |
+| La ficha de un lugar como pantalla aparte (diseño «Diario»), con el «atrás» del teléfono | Hecho |
 
 ## Cómo está hecha
 

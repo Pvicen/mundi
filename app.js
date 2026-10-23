@@ -434,38 +434,94 @@ async function firmar(rutas) {
   return Object.fromEntries(rutas.filter((r) => urls.has(r)).map((r) => [r, urls.get(r).url]));
 }
 
-/* ---------- Ficha de un lugar ---------- */
+/* ---------- Ficha de un lugar: una pantalla aparte ---------- */
+// Al abrirla se añade un paso al historial: el «atrás» del teléfono la cierra y vuelve al mapa en vez de salir
+let pasoFicha = false; // hay en el historial un paso de la ficha que aún no se ha gastado
+const fichaAbierta = () => $("#ficha").classList.contains("abierta");
+
+let fotosFicha = []; // los enlaces de las fotos que enseña la ficha, para el visor
 async function abrirLugar(p) {
   if (elegirEnMapa) return;
   abierto = p;
-  $("#lugar-titulo").textContent = p.nombre;
-  const meta = $("#lugar-meta");
+  const ficha = $("#ficha");
+  const portada = $("#lugar-portada");
   const pais = `${bandera(p.pais)} ${nombrePais(p.pais)}`.trim();
-  meta.replaceChildren(esDeseo(p) ? el("span", "sello deseo", `Quiero ir · ${pais}`) : el("span", "sello", pais));
-  $("#lugar-ya-fui").hidden = !esDeseo(p);
-  if (p.fecha) meta.append(el("span", null, textoFecha(p.fecha)));
-  meta.append(el("span", "coords", coordenadas(p.lat, p.lon)));
+  $("#lugar-meta").replaceChildren(el("span", "sello", esDeseo(p) ? `Quiero ir · ${pais}` : pais));
+  $("#lugar-titulo").textContent = p.nombre;
+  const nFotos = p.fotos?.length ?? 0;
+  $("#lugar-cuando").textContent = [p.fecha ? textoFecha(p.fecha) : null, esDeseo(p) ? "Todavía no has ido" : null,
+    nFotos ? `${nFotos} ${nFotos === 1 ? "foto" : "fotos"}` : null].filter(Boolean).join(" · ");
   $("#lugar-relato").textContent = p.relato || "";
-  const carrusel = $("#lugar-fotos");
-  carrusel.replaceChildren();
-  abrirHoja("hoja-lugar");
-  if (!p.fotos?.length) return;
+  $("#lugar-coords").textContent = coordenadas(p.lat, p.lon);
+  $("#lugar-ya-fui").hidden = !esDeseo(p);
+  $("#lugar-fotos").replaceChildren();
+  fotosFicha = [];
+  portada.style.backgroundImage = "";
+  portada.classList.toggle("con-foto", nFotos > 0);
+  portada.classList.toggle("sin-foto", nFotos === 0);
+  portada.classList.toggle("deseo", esDeseo(p));
+
+  if (!fichaAbierta()) {
+    ficha.scrollTop = 0;
+    ficha.classList.add("abierta");
+    ficha.setAttribute("aria-hidden", "false");
+    if (!pasoFicha) {
+      history.pushState({ mundi: "ficha" }, "");
+      pasoFicha = true;
+    }
+    setTimeout(() => { if (fichaAbierta()) $("#lugar-volver").focus({ preventScroll: true }); }, 340);
+  }
+  if (!nFotos) return;
+
   const enlaces = await firmar(p.fotos);
   if (abierto !== p) return;
-  const lista = p.fotos.map((r) => enlaces[r]).filter(Boolean);
-  lista.forEach((url, i) => {
-    const boton = el("button", "foto");
+  fotosFicha = p.fotos.map((r) => enlaces[r]).filter(Boolean);
+  if (!fotosFicha.length) return;
+  // Entre comillas y con las comillas y barras escapadas, venga el enlace como venga
+  portada.style.backgroundImage = `url("${fotosFicha[0].replace(/["\\]/g, "\\$&")}")`;
+  $("#lugar-fotos").replaceChildren(...fotosFicha.slice(1).map((url, i) => {
+    const boton = el("button", "polaroid");
     boton.type = "button";
-    boton.setAttribute("aria-label", `Ver la foto ${i + 1} de ${lista.length}`);
+    boton.setAttribute("aria-label", `Ver la foto ${i + 2} de ${fotosFicha.length}`);
     const img = el("img");
     img.src = url;
     img.alt = "";
     img.loading = "lazy";
     img.decoding = "async";
-    boton.append(img);
-    boton.addEventListener("click", () => abrirVisor(lista, i));
-    carrusel.append(boton);
-  });
+    boton.append(img, el("span", null, `${p.nombre} · ${i + 2} de ${fotosFicha.length}`));
+    boton.addEventListener("click", () => abrirVisor(fotosFicha, i + 1));
+    return boton;
+  }));
+}
+
+// Cierra la ficha; si su paso sigue en el historial, se gasta (el «atrás» de después no la vuelve a pedir)
+function cerrarFicha() {
+  if (!fichaAbierta()) return;
+  const ficha = $("#ficha");
+  ficha.classList.remove("abierta");
+  ficha.setAttribute("aria-hidden", "true");
+  abierto = null;
+  if (pasoFicha) {
+    pasoFicha = false;
+    history.back();
+  }
+}
+
+// El «atrás» del teléfono: cierra lo que esté encima (el visor o una hoja) y, si no hay nada, la ficha
+function alVolver() {
+  if (!pasoFicha) return; // el paso no era de la ficha
+  if (!$("#visor").hidden || document.querySelector(".hoja.abierta")) {
+    if (!$("#visor").hidden) cerrarVisor();
+    else cerrarHojas();
+    history.pushState({ mundi: "ficha" }, ""); // la ficha sigue abierta: su paso vuelve al historial
+    return;
+  }
+  pasoFicha = false;
+  if (fichaAbierta()) {
+    $("#ficha").classList.remove("abierta");
+    $("#ficha").setAttribute("aria-hidden", "true");
+    abierto = null;
+  }
 }
 
 // Compartir (Contrato «Puente con la App de avisos»): nombre y enlace de mapa; sin navigator.share, al portapapeles
@@ -527,8 +583,8 @@ async function borrarLugar() {
     if (rutas.size) await datos.quitarFotos([...rutas]);
     await datos.borrar(p.id);
     pinchos = pinchos.filter((x) => x.id !== p.id);
-    abierto = null;
     cerrarHojas();
+    cerrarFicha();
     pintar();
     avisar("Lugar borrado.");
   } catch (e) {
@@ -691,6 +747,7 @@ function empezarElegir() {
   if (!form || form.guardando) return;
   elegirEnMapa = true;
   cerrarHojas({ conservarForm: true });
+  cerrarFicha(); // para elegir hay que ver el mapa (si se editaba desde la ficha, al guardar se vuelve al mapa)
   $("#aviso-elegir").hidden = false;
 }
 
@@ -940,6 +997,8 @@ async function guardar(e) {
     if (filtro !== "todos" && anioDe(p) !== filtro) filtro = "todos"; // que se vea lo recién guardado
     pintar(eraNuevo ? p.id : null);
     mapa?.irA(p.lat, p.lon);
+    // Si se editó desde su ficha, la ficha sigue abierta y enseña los cambios
+    if (fichaAbierta() && abierto?.id === p.id) abrirLugar(p);
     avisar(eraNuevo ? "Pincho clavado." : "Cambios guardados.");
   } catch (err) {
     form.guardando = false;
@@ -1102,6 +1161,12 @@ function ponerEventos() {
   });
   $("#lugar-borrar").addEventListener("click", borrarLugar);
   $("#lugar-compartir").addEventListener("click", compartir);
+  $("#lugar-compartir-arriba").addEventListener("click", compartir);
+  $("#lugar-volver").addEventListener("click", cerrarFicha);
+  $("#lugar-portada").addEventListener("click", (e) => {
+    if (!e.target.closest("button") && fotosFicha.length) abrirVisor(fotosFicha, 0);
+  });
+  window.addEventListener("popstate", alVolver);
   $("#lugar-ya-fui").addEventListener("click", yaFui);
   for (const r of document.querySelectorAll('input[name="estado"]')) r.addEventListener("change", pintarEstadoForm);
   $("#form-lugar").addEventListener("submit", guardar);
@@ -1132,7 +1197,8 @@ function ponerEventos() {
     if (e.key !== "Escape") return;
     if (!$("#visor").hidden) cerrarVisor();
     else if (elegirEnMapa) cancelarElegir();
-    else cerrarHojas();
+    else if (document.querySelector(".hoja.abierta")) cerrarHojas();
+    else cerrarFicha();
   });
 }
 
