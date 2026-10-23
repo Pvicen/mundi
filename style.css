@@ -18,6 +18,7 @@
   --linea: #DCCDB0;
   --postal: #FFFFFF;
   --grat: rgba(138, 110, 75, .2);
+  --limite: #A39A8E;
   --sombra-hoja: 0 -10px 30px rgba(59, 47, 34, .18);
   --sombra-boton: 0 2px 8px rgba(59, 47, 34, .14);
   --velo: rgba(59, 47, 34, .35);
@@ -33,6 +34,7 @@
     --pin: #E0533F; --deseo: #6DB3A8; --tinta: #F1E6D0; --tinta-2: #C9B89A; --tinta-3: #9C8A6E;
     --sup: #241E16; --sup-2: #2D261C; --linea: #3D3326; --postal: #EDE3CF;
     --grat: rgba(241, 230, 208, .08);
+    --limite: #857B6E;
     --sombra-hoja: 0 -10px 30px rgba(0, 0, 0, .5); --sombra-boton: 0 2px 8px rgba(0, 0, 0, .4);
     --velo: rgba(0, 0, 0, .5);
     color-scheme: dark;

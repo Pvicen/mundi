@@ -19,6 +19,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | El lugar en vez del país (contorno real de OpenStreetMap o mancha) y fotos en el mapa como polaroids | Hecho |
 | «Quiero ir» (sitios pendientes, en otro color) y «Compartir» un lugar (también hacia la App de avisos) | Hecho |
 | Botón «Instalar Mundi» (al entrar y en el perfil; si el navegador no lo ofrece, una pista de cómo hacerlo) | Hecho |
+| De lejos, un punto por país; al acercar, los pinchos y las líneas grises de regiones y provincias | Hecho |
 
 ## Cómo está hecha
 
@@ -42,6 +43,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | `copia.js` | Arma el .zip de la copia de seguridad (sin librerías) |
 | `puente.js` | El texto que se comparte de un lugar (nombre y enlace de Google Maps); acuerdo en `docs/puente-avisos.md` |
 | `mapa.js` | El mapamundi (d3 y Natural Earth a 1:50 millones); se prueba en `setup/pruebas/mapa.html` |
+| `datos/limites.json` | Las líneas grises de regiones y provincias (Natural Earth 1:10 millones, dominio público); se rehace con `node setup/limites.mjs <geojson>` (la URL, en su cabecera) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Lo que permite instalarla y abrirla sin conexión |
 | `setup/iconos.py` | Dibuja los iconos (`py -3 setup/iconos.py`, con Pillow) |
 | `demo/mundi.html` | El prototipo de diseño, con datos inventados |

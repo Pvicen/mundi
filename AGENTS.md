@@ -95,7 +95,7 @@ Orden aprobado: BD → lote de Fotos, Cáscara PWA y Documentación → Mapa →
 | Fotos | lote | `fotos.js` y su prueba `setup/pruebas/fotos.test.mjs` | «Fotos» |
 | Cáscara PWA | lote | `sw.js`, `manifest.webmanifest` e `icons/` (dibujados con `setup/iconos.py`) | «Cáscara PWA» |
 | Documentación | lote | `README.md` y `_config.yml` (lo que no se publica en Pages) | — |
-| Mapa | crítica | `mapa.js`, su prueba `setup/pruebas/mapa.test.mjs` y la página `setup/pruebas/mapa.html` | «Mapa» |
+| Mapa | crítica | `mapa.js`, su prueba `setup/pruebas/mapa.test.mjs` y la página `setup/pruebas/mapa.html`; las líneas de regiones `datos/limites.json`, que genera `setup/limites.mjs` (prueba `setup/pruebas/limites.test.mjs`) | «Mapa» |
 | Interfaz | crítica | `index.html`, `app.js`, `style.css`, `config.js` y los datos de ejemplo `setup/pruebas/datos-ejemplo.js` | «Interfaz» |
 | Copia | lote | `copia.js` (el ZIP de la copia) y su prueba `setup/pruebas/copia.test.mjs` | «Copia» |
 | Puente | lote | `puente.js` (lo que se comparte) y su prueba `setup/pruebas/puente.test.mjs` | «Puente» y `docs/puente-avisos.md` |

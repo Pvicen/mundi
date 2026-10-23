@@ -191,3 +191,22 @@ avisos está en `docs/puente-avisos.md`.
 - Si no lo ofrece y la app no está instalada, la pantalla de entrar da una pista: en Chrome, menú ⋮ → «Instalar
   app»; en iPhone, Compartir → «Añadir a pantalla de inicio».
 - Ya instalada (`display-mode: standalone`), no aparece nada. Al instalarse (`appinstalled`), lo dice.
+
+## Mapa — un punto por país y líneas de regiones al acercar (añadido)
+
+Ficheros nuevos: `datos/limites.json` (lo genera `setup/limites.mjs` desde Natural Earth; prueba
+`setup/pruebas/limites.test.mjs`).
+
+- **De lejos (zoom < `ZOOM_PAISES` = 2,5), solo los países:** un punto por país (círculo con el número de lugares),
+  en el lugar suyo más céntrico, con el nombre del país en español debajo si no lo tapa otro punto; los pinchos sin
+  país, cada uno solo; dos puntos que quedan encima se juntan (sin nombre). Tocar el punto de un país acerca el mapa
+  a ese país entero (su trozo más grande, más sus lugares), ya por encima de `ZOOM_PAISES`. No hay líneas grises.
+- **Desde `ZOOM_PAISES`,** como antes: los pinchos (los cercanos en pantalla, juntos con su número) y, desde el zoom
+  4, las polaroids.
+- **Líneas grises de regiones y provincias:** desde `ZOOM_PAISES`, cada capa (país y nivel) aparece poco a poco cuando
+  el mapa llega al zoom que propone Natural Earth menos 2 niveles (zoom web: el mundo mide 256 px en el nivel 0), y
+  solo se dibujan las que caen en pantalla. Color: la variable `--limite`. Van por debajo de los lugares y no se tocan.
+- **`datos/limites.json` (limites.v1):** `{ tipo: "limites.v1", fuente, paises: [{ pais, niveles: [{ z, lineas }] }] }`;
+  `pais`, el código ISO de 3 letras; `z`, el zoom web de Natural Earth; cada línea, en milésimas de grado y en
+  diferencias: `[lon0, lat0, dlon1, dlat1, …]`. Se pide (junto a `mapa.js`) la primera vez que hace falta; si no
+  llega, el mapa sigue sin líneas y lo vuelve a pedir como pronto al minuto. Lo que no tenga esa forma se ignora.

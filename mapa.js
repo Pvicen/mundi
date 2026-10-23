@@ -1,10 +1,16 @@
 // Caja Mapa de Mundi (Contrato «Mapa» de docs/contratos.md).
 // El mapamundi: países, pinchos agrupados, zoom y toques. Usa los globales `d3` y `topojson` (cargados antes desde
 // cdnjs) y descarga la geometría de Natural Earth a 1:50 millones (world-atlas). Los pinchos se dibujan en
-// coordenadas de pantalla, encima del mundo, para que no crezcan al acercar.
+// coordenadas de pantalla, encima del mundo, para que no crezcan al acercar. De lejos se ve solo el mundo con un punto
+// por país; al acercar salen los pinchos y, poco a poco, las líneas grises de regiones y provincias (datos/limites.json).
 
 export const URL_GEOMETRIA = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json";
+// Las líneas grises de regiones y provincias (limites.v1, las prepara setup/limites.mjs); viven junto a mapa.js
+export const URL_LIMITES = new URL("datos/limites.json", import.meta.url).href;
 export const RADIO_GRUPO = 24; // px: pinchos más cerca que esto en pantalla van juntos
+export const ZOOM_PAISES = 2.5; // por debajo, un punto por país y sin líneas; desde aquí, los pinchos y las líneas
+const ADELANTO_LIMITES = 2; // cada capa de líneas sale 2 niveles antes del zoom que propone Natural Earth
+const FUNDIDO_LIMITES = 0.6; // niveles de zoom en los que una capa pasa de invisible a entera
 const ZOOM_MAXIMO = 120;
 const RADIO_ZONA_KM = 9; // la mancha de un lugar sin contorno
 const ZOOM_FOTOS = 4; // desde este zoom, los pinchos con foto (portada) se ven como polaroids
@@ -106,6 +112,89 @@ export function agrupar(puntos, radio = RADIO_GRUPO) {
   return grupos.map((g) => ({ x: g.x, y: g.y, pinchos: g.miembros.map((m) => m.pincho) }));
 }
 
+// Un punto por país: los pinchos de cada país van juntos, en el suyo que queda más en medio (así el punto cae siempre
+// en tierra y en el país); los que no tienen país, cada uno solo. Si dos puntos quedan a menos de `radio` px, se juntan.
+// [{ x, y, pincho }] → [{ x, y, pinchos, pais }] (`pais`: el código si todos son del mismo, o null)
+export function agruparPorPais(puntos, radio = RADIO_GRUPO) {
+  const porPais = new Map();
+  const listas = [];
+  for (const p of puntos) {
+    const pais = p.pincho?.pais;
+    if (!pais) { listas.push([p]); continue; }
+    if (!porPais.has(pais)) {
+      porPais.set(pais, []);
+      listas.push(porPais.get(pais));
+    }
+    porPais.get(pais).push(p);
+  }
+  const semillas = listas.map((lista) => {
+    const mx = lista.reduce((s, m) => s + m.x, 0) / lista.length;
+    const my = lista.reduce((s, m) => s + m.y, 0) / lista.length;
+    const lejos = (m) => Math.hypot(m.x - mx, m.y - my);
+    const centro = lista.reduce((mejor, m) => (lejos(m) < lejos(mejor) ? m : mejor));
+    return { x: centro.x, y: centro.y, pincho: lista.map((m) => m.pincho) };
+  });
+  return agrupar(semillas, radio).map((g) => {
+    const pinchos = g.pinchos.flat();
+    const paises = new Set(pinchos.map((p) => p.pais ?? null));
+    return { x: g.x, y: g.y, pinchos, pais: paises.size === 1 ? [...paises][0] : null };
+  });
+}
+
+// El nombre de un país en español a partir de su código (ES → España); el código si el navegador no lo sabe
+export function nombrePais(codigo) {
+  try {
+    return new Intl.DisplayNames(["es"], { type: "region" }).of(codigo) ?? codigo;
+  } catch {
+    return codigo;
+  }
+}
+
+// El nivel de zoom de un mapa web (el mundo mide 256 px en el nivel 0) que equivale a ver el mundo con `anchoMundo` px
+export const zoomWeb = (anchoMundo, k) => Math.log2((anchoMundo * k) / 256);
+
+// limites.v1: una línea en milésimas de grado y en diferencias [lon0, lat0, dlon1, dlat1, …] → [[lon, lat], …]
+export function decodificarLinea(codificada) {
+  const puntos = [];
+  let x = 0, y = 0;
+  for (let i = 0; i + 1 < codificada.length; i += 2) {
+    x += codificada[i];
+    y += codificada[i + 1];
+    puntos.push([x / 1000, y / 1000]);
+  }
+  return puntos;
+}
+
+// Las capas del fichero de límites, una por país y nivel: [{ clave, pais, z, geo }] (`geo`, un MultiLineString).
+// Lo que no tenga la forma de limites.v1 se ignora: unas líneas rotas nunca impiden dibujar el mapa
+export function capasDeLimites(datos) {
+  if (datos?.tipo !== "limites.v1" || !Array.isArray(datos.paises)) return [];
+  const capas = [];
+  for (const p of datos.paises) {
+    if (typeof p?.pais !== "string" || !Array.isArray(p.niveles)) continue;
+    for (const n of p.niveles) {
+      if (!Number.isFinite(n?.z) || !Array.isArray(n.lineas)) continue;
+      const lineas = n.lineas
+        .filter((l) => Array.isArray(l) && l.length >= 4 && l.length % 2 === 0 && l.every(Number.isFinite))
+        .map(decodificarLinea)
+        .filter((l) => l.every(([lon, lat]) => Math.abs(lon) <= 180 && Math.abs(lat) <= 90));
+      if (lineas.length) {
+        capas.push({ clave: `${p.pais}:${n.z}`, pais: p.pais, z: n.z, geo: { type: "MultiLineString", coordinates: lineas } });
+      }
+    }
+  }
+  return capas;
+}
+
+// Cuánto se ve una capa de líneas de nivel `zCapa` cuando el mapa está en `zActual` (zoom web) y `k` (zoom del mapa):
+// nada por debajo de ZOOM_PAISES (de lejos, solo los países); luego aparece poco a poco al acercar
+export function opacidadLimite(zCapa, zActual, k) {
+  if (!(k >= ZOOM_PAISES)) return 0;
+  const entrada = Math.min(1, Math.log2(k / ZOOM_PAISES) / 0.5);
+  const nivel = (zActual + ADELANTO_LIMITES - zCapa) / FUNDIDO_LIMITES;
+  return Math.max(0, Math.min(1, entrada, nivel));
+}
+
 const ESTILOS = `
 .mundi-mapa { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
 .mm-oceano { fill: var(--mar, #CCE0E9); }
@@ -113,6 +202,9 @@ const ESTILOS = `
 .mm-pais { fill: var(--tierra, #FAFBF8); stroke: var(--tierra-borde, #A9BEC7); stroke-width: .7; vector-effect: non-scaling-stroke; transition: fill .4s; }
 /* El país visitado, suave; lo fuerte es el lugar (su contorno o su mancha) */
 .mm-pais.mm-visitado { fill: color-mix(in srgb, var(--visitado, #F0B23E) 30%, var(--tierra, #FAFBF8)); }
+/* Las líneas grises de regiones y provincias, finas y por debajo de los lugares */
+.mm-limite { fill: none; stroke: var(--limite, #A39A8E); stroke-width: .8; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+.mm-pais-nombre { font: 600 11px var(--f-texto, system-ui, sans-serif); fill: var(--tinta, #0F2A3A); text-anchor: middle; paint-order: stroke; stroke: var(--pared, #FFFFFF); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
 .mm-polaroid-papel { fill: var(--postal, #FFFFFF); stroke: rgba(59, 47, 34, .25); stroke-width: .6; }
 .mm-polaroid-sombra { fill: #000000; opacity: .16; }
 .mm-polaroid-nombre { font: italic 600 8.5px var(--f-titulo, Georgia, serif); fill: #3B2F22; text-anchor: middle; }
@@ -181,12 +273,15 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     .attr("role", "group")
     .attr("aria-label", "Mapamundi con tus pinchos");
 
-  let W = 0, H = 0, proyeccion, camino, zoom, gMundo, gZonas, gPinchos;
+  let W = 0, H = 0, anchoMundo = 0, proyeccion, camino, zoom, gMundo, gLimites, gZonas, gPinchos;
   let t = d3.zoomIdentity;
   let vistaMundo = d3.zoomIdentity;
   let pinchos = [];
   let resaltado = null;
   let provisional = null;
+  let capas = null; // las líneas de regiones, cuando hayan llegado
+  let pidiendoLimites = false;
+  let reintentarLimites = 0; // si la descarga falla, no se vuelve a pedir hasta esta hora
 
   function construir() {
     const caja = contenedor.getBoundingClientRect();
@@ -204,11 +299,15 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     const [tx, ty] = proyeccion.translate();
     proyeccion.translate([tx + W / 2 - (x0 + x1) / 2, ty + H / 2 - (y0 + y1) / 2]);
     [[x0, y0], [x1, y1]] = camino.bounds(esfera);
+    anchoMundo = x1 - x0;
+    // Con otra proyección, los trazos y las cajas de las líneas ya hechos no valen
+    for (const c of capas ?? []) c.d = c.caja = null;
 
     gMundo = svg.append("g");
     gMundo.append("path").attr("class", "mm-oceano").attr("d", camino(esfera));
     gMundo.append("path").attr("class", "mm-graticula").attr("d", camino(d3.geoGraticule10()));
     gMundo.selectAll("path.mm-pais").data(paises).join("path").attr("class", "mm-pais").attr("d", camino);
+    gLimites = gMundo.append("g").attr("class", "mm-limites");
     gZonas = gMundo.append("g").attr("class", "mm-zonas");
     gPinchos = svg.append("g").attr("class", "mm-pinchos");
 
@@ -222,6 +321,7 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
       .on("zoom", (e) => {
         t = e.transform;
         gMundo.attr("transform", t);
+        pintarLimites();
         dibujarPinchos();
       });
     svg.call(zoom).on("click", tocarMapa);
@@ -254,6 +354,51 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     return { type: "MultiPolygon", coordinates: poligonos };
   }
 
+  // El fichero de líneas se pide la primera vez que hace falta; si no llega, el mapa sigue sin ellas y se reintenta
+  // como pronto al minuto
+  function pedirLimites() {
+    if (capas || pidiendoLimites || Date.now() < reintentarLimites) return;
+    pidiendoLimites = true;
+    fetch(URL_LIMITES)
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((datos) => {
+        capas = capasDeLimites(datos);
+        pintarLimites();
+      })
+      .catch(() => { reintentarLimites = Date.now() + 60_000; })
+      .finally(() => { pidiendoLimites = false; });
+  }
+
+  // Solo las capas que tocan a este zoom y caen en pantalla: así el teléfono no dibuja el mundo entero
+  function pintarLimites() {
+    if (!gLimites) return;
+    if (t.k < ZOOM_PAISES) {
+      gLimites.selectAll("path").remove();
+      return;
+    }
+    pedirLimites();
+    if (!capas) return;
+    const zw = zoomWeb(anchoMundo, t.k);
+    const [vx0, vy0] = t.invert([0, 0]);
+    const [vx1, vy1] = t.invert([W, H]);
+    const visibles = [];
+    for (const c of capas) {
+      const opacidad = opacidadLimite(c.z, zw, t.k);
+      if (opacidad <= 0) continue;
+      c.caja ??= camino.bounds(c.geo);
+      const [[a, b], [cx, cy]] = c.caja;
+      if (cx < vx0 || a > vx1 || cy < vy0 || b > vy1) continue;
+      visibles.push({ c, opacidad });
+    }
+    gLimites.selectAll("path.mm-limite")
+      .data(visibles, (v) => v.c.clave)
+      .join((entra) => entra.append("path").attr("class", "mm-limite").attr("d", (v) => (v.c.d ??= camino(v.c.geo))))
+      .attr("opacity", (v) => v.opacidad.toFixed(2));
+  }
+
   const enPantalla = (lat, lon) => t.apply(proyeccion([lon, lat]));
 
   function dibujarPinchos() {
@@ -262,19 +407,33 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
       const [x, y] = enPantalla(p.lat, p.lon);
       return { x, y, pincho: p };
     });
+    // De lejos, un punto por país; al acercar, los pinchos (los cercanos en pantalla, juntos) y luego las polaroids
+    const porPais = t.k < ZOOM_PAISES;
     const conFotos = t.k >= ZOOM_FOTOS;
-    const grupos = agrupar(puntos, conFotos ? RADIO_GRUPO_FOTOS : RADIO_GRUPO);
+    const grupos = porPais ? agruparPorPais(puntos) : agrupar(puntos, conFotos ? RADIO_GRUPO_FOTOS : RADIO_GRUPO);
     for (const g of grupos) {
-      g.polaroid = conFotos && g.pinchos.length === 1 && !!g.pinchos[0].portada && !esDeseo(g.pinchos[0]);
+      g.porPais = porPais;
+      g.polaroid = !porPais && conFotos && g.pinchos.length === 1 && !!g.pinchos[0].portada && !esDeseo(g.pinchos[0]);
       g.deseo = g.pinchos.every(esDeseo);
-      g.clave = (g.polaroid ? "f:" : g.deseo ? "d:" : "p:") + g.pinchos.map((p) => p.id).sort().join("|");
+      g.clave = (porPais ? "c:" : "") + (g.polaroid ? "f:" : g.deseo ? "d:" : "p:")
+        + g.pinchos.map((p) => p.id).sort().join("|");
+    }
+    // El nombre del país va debajo de su punto solo si ahí no hay otro punto que lo tape
+    for (const g of grupos) {
+      g.conNombre = porPais && !!g.pais
+        && !grupos.some((o) => o !== g && Math.abs(o.x - g.x) < 50 && o.y - g.y > -14 && o.y - g.y < 47);
     }
 
     gPinchos.selectAll("g.mm-marca")
       .data(grupos, (g) => g.clave)
       .join((entra) => entra.append("g").each(function (g) {
         const sel = d3.select(this).attr("tabindex", 0).attr("role", "button");
-        if (g.polaroid) {
+        if (g.porPais) {
+          sel.append("circle").attr("class", "mm-grupo-fondo").attr("cy", -12).attr("r", 15);
+          sel.append("text").attr("class", "mm-grupo-num").attr("y", -12).text(g.pinchos.length);
+          if (g.pais) sel.append("text").attr("class", "mm-pais-nombre").attr("y", 16).text(nombrePais(g.pais));
+          sel.append("circle").attr("class", "mm-toque").attr("cy", -12).attr("r", 20);
+        } else if (g.polaroid) {
           polaroid(sel, g.pinchos[0]);
         } else if (g.pinchos.length === 1) {
           cuerpoPincho(sel.append("g").attr("class", "mm-cuerpo"));
@@ -287,20 +446,28 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
       }))
       .attr("class", (g) => "mm-marca" + (g.deseo ? " mm-deseo" : "")
         + (g.pinchos.length === 1 && g.pinchos[0].id === resaltado ? " mm-nuevo" : ""))
-      .attr("aria-label", (g) => g.pinchos.length === 1
-        ? g.pinchos[0].nombre + (g.deseo ? " (quiero ir)" : "")
-        : `${g.pinchos.length} lugares: ${g.pinchos.map((p) => p.nombre).join(", ")}`)
+      .attr("aria-label", (g) => {
+        const nombres = g.pinchos.map((p) => p.nombre).join(", ");
+        if (g.porPais) {
+          const cuantos = g.pinchos.length === 1 ? "1 lugar" : `${g.pinchos.length} lugares`;
+          return g.pais ? `${nombrePais(g.pais)}, ${cuantos}: ${nombres}` : `${cuantos}: ${nombres}`;
+        }
+        return g.pinchos.length === 1
+          ? g.pinchos[0].nombre + (g.deseo ? " (quiero ir)" : "")
+          : `${g.pinchos.length} lugares: ${nombres}`;
+      })
       .attr("transform", (g) => `translate(${g.x.toFixed(1)},${g.y.toFixed(1)})`)
+      .each(function (g) {
+        d3.select(this).select(".mm-pais-nombre").attr("display", g.conNombre ? null : "none");
+      })
       .on("click", (e, g) => {
         e.stopPropagation();
-        if (g.pinchos.length === 1) alTocarPincho(g.pinchos[0]);
-        else ir(transformacionPara(g.pinchos, 70));
+        tocarGrupo(g);
       })
       .on("keydown", (e, g) => {
         if (e.key !== "Enter" && e.key !== " ") return;
         e.preventDefault();
-        if (g.pinchos.length === 1) alTocarPincho(g.pinchos[0]);
-        else ir(transformacionPara(g.pinchos, 70));
+        tocarGrupo(g);
       })
       .order();
 
@@ -313,13 +480,43 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     }
   }
 
+  // Un pincho solo se abre; un grupo acerca el mapa a sus lugares y el punto de un país, al país entero
+  function tocarGrupo(g) {
+    if (g.porPais) ir(transformacionPais(g));
+    else if (g.pinchos.length === 1) alTocarPincho(g.pinchos[0]);
+    else ir(transformacionPara(g.pinchos, 70));
+  }
+
+  // El país entero (su trozo más grande: Francia sin sus islas lejanas) y sus lugares, ya por encima de ZOOM_PAISES
+  function transformacionPais(g) {
+    const puntos = g.pinchos.map((p) => proyeccion([p.lon, p.lat]));
+    const pais = g.pais ? paises.find((f) => f.alfa2 === g.pais) : null;
+    if (pais) {
+      const [[a, b], [c, d]] = camino.bounds(trozoMayor(pais));
+      puntos.push([a, b], [c, d]);
+    }
+    return encuadre(puntos, 40, ZOOM_PAISES * 1.3, pais ? ZOOM_MAXIMO : ZOOM_PUNTO);
+  }
+
+  function trozoMayor(pais) {
+    const g = pais.geometry;
+    if (g?.type !== "MultiPolygon") return pais;
+    const trozos = g.coordinates.map((coordinates) => ({ type: "Polygon", coordinates }));
+    return trozos.reduce((mayor, t) => (d3.geoArea(t) > d3.geoArea(mayor) ? t : mayor));
+  }
+
   function transformacionPara(lista, margen, kPunto = ZOOM_PUNTO) {
-    const puntos = lista.map((p) => proyeccion([p.lon, p.lat]));
+    const [, kMax] = zoom.scaleExtent();
+    return encuadre(lista.map((p) => proyeccion([p.lon, p.lat])), margen, 0, lista.length === 1 ? kPunto : kMax);
+  }
+
+  // La vista que encaja esos puntos (ya proyectados) con `margen` px, con el zoom entre `kSuelo` y `kTecho`
+  function encuadre(puntos, margen, kSuelo, kTecho) {
     const [x0, x1] = d3.extent(puntos, (d) => d[0]);
     const [y0, y1] = d3.extent(puntos, (d) => d[1]);
-    const [kMin, kMax] = zoom.scaleExtent();
+    const [kMin] = zoom.scaleExtent();
     const ajuste = Math.min((W - margen * 2) / Math.max(x1 - x0, 1), (H - margen * 2) / Math.max(y1 - y0, 1));
-    const k = Math.max(kMin, Math.min(lista.length === 1 ? kPunto : kMax, ajuste));
+    const k = Math.max(kMin, kSuelo, Math.min(kTecho, ajuste));
     return d3.zoomIdentity.translate(W / 2, H / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
   }
 
