@@ -124,6 +124,18 @@ svg { flex: none; }
   font-weight: 600; font-size: 14px;
 }
 .aviso-elegir button { border: 0; border-radius: 999px; padding: 6px 12px; background: var(--pared); color: var(--tinta); font-weight: 600; font-size: 13px; }
+/* Un mapa compartido: abajo, de quién es y cómo volver al tuyo */
+.ajeno {
+  position: absolute; left: 12px; right: 84px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 2;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 10px 10px 14px; border-radius: 6px; background: var(--deseo); color: var(--sup);
+  font-weight: 600; font-size: 14px; box-shadow: var(--sombra-boton);
+}
+.ajeno span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ajeno button {
+  flex: none; border: 0; border-radius: 999px; padding: 6px 12px; background: var(--sup); color: var(--deseo);
+  font-weight: 700; font-size: 13px;
+}
 .controles {
   position: absolute; right: 14px; bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   display: grid; justify-items: center; gap: 10px;
@@ -269,6 +281,35 @@ textarea.entrada { resize: vertical; min-height: 90px; font-family: var(--f-titu
 .polaroid:nth-child(odd) { transform: rotate(-2deg); }
 .polaroid:nth-child(even) { transform: rotate(1.6deg); }
 .polaroid img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--sup-2); }
+
+/* Experiencias y valoración: en la ficha, agrupadas por tipo; en el formulario, cada una en su cajita */
+.de-quien { font-size: 13px; font-weight: 600; }
+.experiencias { display: grid; gap: 12px; }
+.experiencias .subtitulo { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.estrellas { color: var(--visitado-borde); letter-spacing: .08em; font-size: 15px; white-space: nowrap; }
+.experiencias-lista { display: grid; gap: 14px; }
+.grupo-exp { display: grid; gap: 8px; }
+.tipo-exp { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--tinta-2); }
+.experiencia { display: grid; gap: 4px; padding: 10px 12px; border-radius: 6px; background: var(--sup-2); border: 1px dashed var(--linea); }
+.experiencia p { margin: 0; font-family: var(--f-titulo); font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.exp-cabeza { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.exp-cabeza strong { min-width: 0; overflow-wrap: anywhere; }
+.valoracion { display: flex; gap: 2px; }
+.estrella { border: 0; background: none; padding: 2px 4px; font-size: 30px; line-height: 1; color: var(--visitado-borde); }
+.experiencias-form { display: grid; gap: 10px; }
+.experiencias-form:empty { display: none; }
+.experiencia-edicion { display: grid; gap: 8px; padding: 10px; border: 1px dashed var(--tierra-borde); border-radius: 6px; background: var(--sup-2); }
+.experiencia-edicion .fila { flex-wrap: nowrap; }
+.experiencia-edicion select.entrada { flex: 1; min-width: 0; padding: 8px 10px; font-size: 15px; background: var(--sup); }
+.experiencia-edicion input.entrada, .experiencia-edicion textarea.entrada { background: var(--sup); }
+.experiencia-edicion textarea.entrada { min-height: 56px; font-family: var(--f-texto); font-size: 15px; }
+.quitar-exp {
+  flex: none; width: 38px; border: 1px solid var(--linea); border-radius: 50%; background: var(--sup);
+  display: grid; place-items: center; color: var(--tinta); padding: 0;
+}
+.quitar-exp svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+#anadir-experiencia { justify-self: start; }
+.compartidos > div span:first-child { font-family: var(--f-dato); font-size: 13px; }
 
 /* La pantalla de todas las fotos de un lugar */
 .pantalla-fotos { background: var(--pared); }

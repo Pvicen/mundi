@@ -84,6 +84,10 @@
       <button type="button" id="cancelar-elegir">Cancelar</button>
     </div>
     <p class="vacio" id="vacio" hidden>Aún no hay pinchos. Pulsa <b>+</b> para clavar el primero.</p>
+    <div class="ajeno" id="ajeno" hidden>
+      <span>Mapa de <b id="ajeno-nombre"></b></span>
+      <button type="button" id="ajeno-volver">Volver al mío</button>
+    </div>
     <div class="controles">
       <button class="boton-icono" id="encuadrar" type="button" aria-label="Ver todos mis pinchos">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
@@ -114,6 +118,10 @@
         <div class="polaroids" id="lugar-fotos"></div>
         <button class="boton-suave" id="lugar-ver-fotos" type="button">Ver las fotos</button>
       </div>
+      <section class="experiencias" id="lugar-experiencias" aria-labelledby="lugar-experiencias-titulo" hidden>
+        <h3 class="subtitulo"><span id="lugar-experiencias-titulo">Experiencias</span><span class="estrellas" id="lugar-valoracion"></span></h3>
+        <div class="experiencias-lista" id="lugar-experiencias-lista"></div>
+      </section>
       <p class="coords" id="lugar-coords"></p>
       <div class="acciones">
         <button class="boton-principal pequeno" id="lugar-ya-fui" type="button" hidden>Ya fui</button>
@@ -194,6 +202,18 @@
         <textarea class="entrada" id="campo-relato" maxlength="4000" rows="4"></textarea>
       </div>
 
+      <div class="campo" id="campo-valoracion">
+        <span class="etiqueta-campo">Valoración</span>
+        <div class="valoracion" id="valoracion" role="group" aria-label="Valoración del lugar, de 1 a 5"></div>
+      </div>
+
+      <div class="campo">
+        <span class="etiqueta-campo">Experiencias</span>
+        <div class="experiencias-form" id="experiencias-form"></div>
+        <button class="boton-suave" type="button" id="anadir-experiencia">Añadir experiencia</button>
+        <small class="suave">Dónde comiste o dormiste, qué visitaste o hiciste y tus consejos.</small>
+      </div>
+
       <p class="error" id="form-error" role="alert" hidden></p>
       <p class="suave" id="form-estado" aria-live="polite" hidden></p>
       <button class="boton-principal" id="guardar" type="submit" disabled>Guardar</button>
@@ -216,6 +236,20 @@
       <div class="lista" id="perfil-lugares"></div>
       <h3 class="subtitulo" id="perfil-deseos-titulo" hidden>Quiero ir</h3>
       <div class="lista" id="perfil-deseos" hidden></div>
+      <h3 class="subtitulo" id="me-comparten-titulo" hidden>Mapas que te comparten</h3>
+      <div class="lista" id="me-comparten" hidden></div>
+      <h3 class="subtitulo">Compartir mi mapa</h3>
+      <p class="suave">Quien pongas aquí verá tu mapa entero (lugares, fotos y experiencias), sin poder cambiar nada. Necesita una cuenta de Mundi.</p>
+      <div class="campo">
+        <label for="compartir-nombre">Tu nombre, como te verán</label>
+        <input class="entrada" id="compartir-nombre" type="text" maxlength="40" placeholder="Por ejemplo, Vicente" autocomplete="nickname">
+      </div>
+      <div class="lista compartidos" id="compartidos"></div>
+      <div class="fila">
+        <input class="entrada" id="compartir-correo" type="email" inputmode="email" autocomplete="off" placeholder="Correo de la persona" aria-label="Correo de la persona con quien compartes">
+        <button class="boton-suave" id="compartir-boton" type="button">Compartir</button>
+      </div>
+      <p class="error" id="compartir-error" role="alert" hidden></p>
       <button class="boton-suave boton-instalar" type="button" hidden>Instalar Mundi en este teléfono</button>
       <h3 class="subtitulo">Copia de seguridad</h3>
       <p class="suave">Un archivo .zip con todos tus lugares y sus fotos, para guardarlo donde quieras.</p>

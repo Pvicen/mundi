@@ -99,6 +99,7 @@ Orden aprobado: BD → lote de Fotos, Cáscara PWA y Documentación → Mapa →
 | Interfaz | crítica | `index.html`, `app.js`, `style.css`, `config.js` y los datos de ejemplo `setup/pruebas/datos-ejemplo.js` | «Interfaz» |
 | Copia | lote | `copia.js` (el ZIP de la copia) y su prueba `setup/pruebas/copia.test.mjs` | «Copia» |
 | Puente | lote | `puente.js` (lo que se comparte) y su prueba `setup/pruebas/puente.test.mjs` | «Puente» y `docs/puente-avisos.md` |
+| Experiencias | lote | `experiencias.js` (tipos y reglas) y su prueba `setup/pruebas/experiencias.test.mjs` | «Interfaz — experiencias» |
 
 **Lotes (C.C.D. §6):** son críticas toda migración o cambio de RLS o del almacén, el mapa y lo que toque la sesión o
 los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir en lote.
@@ -107,7 +108,9 @@ los datos; la documentación, la cáscara PWA y los ajustes de estilo pueden ir 
 
 - **No programar ninguna Caja sin su Contrato aprobado** por Vicente.
 - **No publicar la app ni compartir la demo** sin su orden. La demo publicada es privada.
-- **Lo que se guarda es privado:** cada pincho y cada foto, solo de su dueño. Hoy el único usuario es Vicente.
+- **Lo que se guarda es privado:** cada pincho y cada foto, solo de su dueño y, en solo lectura, de las personas de
+  Mundi a las que él comparta su mapa (`mundi_compartidos`, decisión de Vicente del 23/10). Escribir, solo el dueño.
+  Usuarios: Vicente y, pronto, su suegro, cada uno con su mapa.
 - **El proyecto de Supabase es el de la App de avisos:** no tocar sus tablas, funciones, políticas ni almacenes. Lo de
   Mundi lleva siempre el prefijo `mundi`.
 - **Mundi comparte dominio con la App de avisos** (`pvicen.github.io`): la sesión va con su propia clave
@@ -144,7 +147,7 @@ Vista previa local: configuración `mundi` de `C:\Dev\.claude\launch.json` (puer
 Gate mínimo antes de commitear:
 
 ```powershell
-node --check app.js; node --check config.js; node --check copia.js; node --check puente.js; node --check fotos.js; node --check mapa.js; node --check sw.js; node --test
+node --check app.js; node --check config.js; node --check copia.js; node --check puente.js; node --check experiencias.js; node --check fotos.js; node --check mapa.js; node --check sw.js; node --test
 ```
 
 y abrir la vista previa sin errores en la consola. Lo que solo existe en el navegador (el lienzo de las fotos, el

@@ -6,9 +6,12 @@ import { crearMapa, formaValida } from "./mapa.js";
 import { prepararFoto, LADO_MINIATURA } from "./fotos.js";
 import { crearZip, nombreSeguro } from "./copia.js";
 import { textoCompartir } from "./puente.js";
+import {
+  TIPOS, MAX_EXPERIENCIAS, MAX_NOMBRE, MAX_TEXTO, agruparPorTipo, estrellas, limpiarExperiencias,
+} from "./experiencias.js";
 
 const ALMACEN = "mundi-fotos";
-const COLUMNAS = "id, nombre, pais, lat, lon, fecha, relato, fotos, forma, miniatura, estado, creado_en";
+const COLUMNAS = "id, dueno, nombre, pais, lat, lon, fecha, relato, fotos, forma, miniatura, estado, valoracion, experiencias, creado_en";
 const MAX_FORMA = 60000; // caracteres del contorno que se guarda (la base admite 100 KB)
 const MAX_FOTOS = 30;
 const SEGUNDOS_URL = 3600;
@@ -100,6 +103,7 @@ function crearDatosSupabase() {
   };
   const usuario = (u) => (u ? { id: u.id, correo: u.email } : null);
   const pinchos = () => sb.from("mundi_pinchos");
+  const permisos = () => sb.from("mundi_compartidos");
   return {
     async sesion() {
       const { data } = await sb.auth.getSession();
@@ -116,10 +120,27 @@ function crearDatosSupabase() {
     async esPersona() {
       return comprobar(await sb.rpc("mundi_es_persona")) === true;
     },
-    async listar() {
-      return comprobar(await pinchos().select(COLUMNAS)
+    // Siempre los de un dueño: con los mapas compartidos, la base deja leer también los de otros
+    async listar(dueno) {
+      return comprobar(await pinchos().select(COLUMNAS).eq("dueno", dueno)
         .order("fecha", { ascending: false, nullsFirst: false })
         .order("creado_en", { ascending: false }));
+    },
+    async compartidos(dueno) {
+      return comprobar(await permisos().select("lector, nombre, creado_en").eq("dueno", dueno).order("creado_en"));
+    },
+    async compartir(lector, nombre) {
+      comprobar(await permisos().insert({ lector, nombre }));
+    },
+    async renombrar(dueno, nombre) {
+      comprobar(await permisos().update({ nombre }).eq("dueno", dueno));
+    },
+    async dejarDeCompartir(dueno, lector) {
+      comprobar(await permisos().delete().eq("dueno", dueno).eq("lector", lector));
+    },
+    async meComparten(correo) {
+      return comprobar(await permisos().select("dueno, dueno_correo, nombre").eq("lector", correo.toLowerCase())
+        .order("nombre"));
     },
     async crear(fila) {
       return comprobar(await pinchos().insert(fila).select(COLUMNAS).single());
@@ -157,7 +178,9 @@ if (EJEMPLO) window.datosEjemplo = datos; // para mirar el estado desde la conso
 
 /* ---------- Estado ---------- */
 let yo = null; // { id, correo }
-let pinchos = [];
+let pinchos = []; // los míos
+let ajeno = null; // el mapa de otra persona que se está viendo: { dueno, nombre, pinchos }
+let compartidosActuales = []; // con quién comparto mi mapa: [{ lector, nombre }]
 let mapa = null;
 let abierto = null; // el pincho de la ficha
 let elegirEnMapa = false;
@@ -296,7 +319,7 @@ async function iniciarMapa() {
 
 async function cargarPinchos() {
   try {
-    pinchos = ordenar(await datos.listar());
+    pinchos = ordenar(await datos.listar(yo.id));
   } catch (e) {
     avisar("No se pudieron cargar tus lugares: " + e.message);
   }
@@ -304,16 +327,19 @@ async function cargarPinchos() {
 
 /* ---------- Filtro por año ---------- */
 const esDeseo = (p) => p.estado === "quiero_ir"; // un sitio al que quiere ir (no cuenta como visitado)
+const esMio = (p) => !!p && p.dueno === yo?.id;
 const anioDe = (p) => (esDeseo(p) ? "quiero-ir" : p.fecha ? p.fecha.slice(0, 4) : "sin-fecha");
-const visibles = () => (filtro === "todos" ? pinchos : pinchos.filter((p) => anioDe(p) === filtro));
+const delMapa = () => ajeno?.pinchos ?? pinchos; // los del mapa en pantalla: el mío o el que me comparten
+const visibles = () => (filtro === "todos" ? delMapa() : delMapa().filter((p) => anioDe(p) === filtro));
 
 function pintarFiltro() {
-  const estuve = pinchos.filter((p) => !esDeseo(p));
+  const todos = delMapa();
+  const estuve = todos.filter((p) => !esDeseo(p));
   const anios = [...new Set(estuve.filter((p) => p.fecha).map(anioDe))].sort().reverse();
   const opciones = [
     ...anios,
     ...(estuve.some((p) => !p.fecha) ? ["sin-fecha"] : []),
-    ...(pinchos.some(esDeseo) ? ["quiero-ir"] : []),
+    ...(todos.some(esDeseo) ? ["quiero-ir"] : []),
   ];
   if (filtro !== "todos" && !opciones.includes(filtro)) filtro = "todos";
   const barra = $("#filtro-anio");
@@ -342,7 +368,10 @@ function pintar(resaltar = null) {
     ? [el("b", null, String(lista.length)), " por visitar"]
     : [el("b", null, String(paises)), ` ${paises === 1 ? "país" : "países"} · `,
       el("b", null, String(estuve.length)), ` ${estuve.length === 1 ? "lugar" : "lugares"}`]));
-  $("#vacio").hidden = pinchos.length > 0;
+  const vacio = $("#vacio");
+  vacio.hidden = delMapa().length > 0;
+  if (ajeno) vacio.replaceChildren(`${ajeno.nombre} aún no tiene lugares en su mapa.`);
+  else vacio.replaceChildren("Aún no hay pinchos. Pulsa ", el("b", null, "+"), " para clavar el primero.");
 }
 
 /* ---------- Portadas del mapa (polaroids) ---------- */
@@ -361,7 +390,7 @@ function portadaDe(p) {
 const intentosPortada = new Map(); // ruta → cuándo se pidió su enlace (no se repite antes de 5 min)
 async function firmarPortadas() {
   const ahora = Date.now();
-  const faltan = [...new Set(pinchos.map(rutaPortada))].filter((r) =>
+  const faltan = [...new Set(delMapa().map(rutaPortada))].filter((r) =>
     r && !(urls.get(r)?.hasta > ahora) && !(intentosPortada.get(r) > ahora - 300000));
   if (!faltan.length) return;
   for (const r of faltan) intentosPortada.set(r, ahora);
@@ -446,7 +475,7 @@ let ajustePendiente = false;
 const fichaAbierta = () => $("#ficha").classList.contains("abierta");
 const fotosAbiertas = () => $("#pantalla-fotos").classList.contains("abierta");
 const hayAlgoEncima = () => fichaAbierta() || fotosAbiertas() || !!document.querySelector(".hoja.abierta")
-  || !$("#visor").hidden || elegirEnMapa || !!form?.guardando;
+  || !$("#visor").hidden || elegirEnMapa || !!form?.guardando || !!ajeno;
 
 // Pone o gasta el paso según lo que quede abierto. Se decide al terminar la tarea en curso, cuando ya se ha cerrado y
 // abierto todo lo que tocaba (cerrar el perfil y abrir una ficha a la vez es seguir con algo abierto)
@@ -479,7 +508,8 @@ function alVolver() {
   else if (elegirEnMapa) cancelarElegir();
   else if (document.querySelector(".hoja.abierta")) cerrarHojas();
   else if (fotosAbiertas()) cerrarFotos();
-  else cerrarFicha();
+  else if (fichaAbierta()) cerrarFicha();
+  else if (ajeno) volverAlMio();
   ajustarHistorial(); // si sigue abierto algo, su paso vuelve
 }
 
@@ -492,14 +522,20 @@ async function abrirLugar(p) {
   const ficha = $("#ficha");
   const portada = $("#lugar-portada");
   const pais = `${bandera(p.pais)} ${nombrePais(p.pais)}`.trim();
+  const mio = esMio(p);
   $("#lugar-meta").replaceChildren(el("span", "sello", esDeseo(p) ? `Quiero ir · ${pais}` : pais));
+  if (!mio && ajeno) $("#lugar-meta").append(el("span", "de-quien", `Del mapa de ${ajeno.nombre}`));
   $("#lugar-titulo").textContent = p.nombre;
   const nFotos = p.fotos?.length ?? 0;
-  $("#lugar-cuando").textContent = [p.fecha ? textoFecha(p.fecha) : null, esDeseo(p) ? "Todavía no has ido" : null,
+  $("#lugar-cuando").textContent = [p.fecha ? textoFecha(p.fecha) : null,
+    esDeseo(p) ? (mio ? "Todavía no has ido" : "Todavía no ha ido") : null,
     nFotos ? `${nFotos} ${nFotos === 1 ? "foto" : "fotos"}` : null].filter(Boolean).join(" · ");
   $("#lugar-relato").textContent = p.relato || "";
+  pintarExperiencias(p);
   $("#lugar-coords").textContent = coordenadas(p.lat, p.lon);
-  $("#lugar-ya-fui").hidden = !esDeseo(p);
+  // Un lugar de un mapa compartido solo se mira: sin «Ya fui», «Editar» ni «Borrar»
+  $("#lugar-ya-fui").hidden = !mio || !esDeseo(p);
+  $("#lugar-editar").hidden = $("#lugar-borrar").hidden = !mio;
   $("#lugar-fotos").replaceChildren();
   $("#lugar-fotos-bloque").hidden = true;
   fotosFicha = [];
@@ -578,6 +614,165 @@ function cerrarFotos() {
   ajustarHistorial();
 }
 
+// La valoración y las experiencias del lugar, agrupadas por tipo (Comer, Dormir…); sin ninguna de las dos, nada
+function pintarExperiencias(p) {
+  const grupos = agruparPorTipo(p.experiencias);
+  const valoracion = p.valoracion ?? null;
+  $("#lugar-experiencias").hidden = !grupos.length && !valoracion;
+  $("#lugar-experiencias-titulo").textContent = grupos.length ? "Experiencias" : "Valoración";
+  const estrellasLugar = $("#lugar-valoracion");
+  estrellasLugar.textContent = estrellas(valoracion);
+  if (valoracion) estrellasLugar.setAttribute("aria-label", `${valoracion} de 5`);
+  else estrellasLugar.removeAttribute("aria-label");
+  $("#lugar-experiencias-lista").replaceChildren(...grupos.map((g) => {
+    const grupo = el("div", "grupo-exp");
+    grupo.append(el("h4", "tipo-exp", `${g.tipo.icono} ${g.tipo.nombre}`));
+    for (const x of g.items) {
+      const experiencia = el("article", "experiencia");
+      const cabeza = el("div", "exp-cabeza");
+      cabeza.append(el("strong", null, x.nombre));
+      if (x.estrellas) {
+        const e = el("span", "estrellas", estrellas(x.estrellas));
+        e.setAttribute("aria-label", `${x.estrellas} de 5`);
+        cabeza.append(e);
+      }
+      experiencia.append(cabeza);
+      if (x.texto) experiencia.append(el("p", null, x.texto));
+      grupo.append(experiencia);
+    }
+    return grupo;
+  }));
+}
+
+/* ---------- Mapas compartidos ---------- */
+// Ver el mapa de quien me lo comparte: sus lugares, solo para mirar; «Volver al mío» (o «atrás») regresa
+async function verMapaDe(fila) {
+  cerrarHojas();
+  cerrarFicha();
+  let lista;
+  try {
+    lista = ordenar(await datos.listar(fila.dueno));
+  } catch (e) {
+    avisar("No se pudo abrir ese mapa: " + e.message);
+    return;
+  }
+  ajeno = { dueno: fila.dueno, nombre: fila.nombre, pinchos: lista };
+  filtro = "todos";
+  pintarAjeno();
+  pintar();
+  mapa?.encuadrar();
+  ajustarHistorial();
+}
+
+function volverAlMio() {
+  if (!ajeno) return;
+  cerrarFicha();
+  ajeno = null;
+  filtro = "todos";
+  pintarAjeno();
+  pintar();
+  mapa?.encuadrar();
+  ajustarHistorial();
+}
+
+function pintarAjeno() {
+  $("#ajeno").hidden = !ajeno;
+  $("#ajeno-nombre").textContent = ajeno?.nombre ?? "";
+  $("#abrir-nuevo").hidden = !!ajeno; // en un mapa ajeno no se clavan pinchos
+}
+
+// Con quién comparto mi mapa y quién me comparte el suyo (en el perfil)
+async function pintarCompartir() {
+  const lista = $("#compartidos");
+  lista.replaceChildren(el("p", "suave", "Cargando…"));
+  $("#compartir-error").hidden = true;
+  try {
+    const [mios, ajenos] = await Promise.all([datos.compartidos(yo.id), datos.meComparten(yo.correo)]);
+    compartidosActuales = mios;
+    if (!$("#compartir-nombre").value && mios[0]) $("#compartir-nombre").value = mios[0].nombre;
+    lista.replaceChildren(...(mios.length
+      ? mios.map((fila) => {
+        const linea = el("div");
+        const quitar = el("button", "boton-suave peligro", "Quitar");
+        quitar.type = "button";
+        quitar.setAttribute("aria-label", `Dejar de compartir tu mapa con ${fila.lector}`);
+        quitar.addEventListener("click", () => quitarPermiso(fila.lector));
+        linea.append(el("span", null, fila.lector), quitar);
+        return linea;
+      })
+      : [el("p", "suave", "Aún no compartes tu mapa con nadie.")]));
+    $("#me-comparten-titulo").hidden = $("#me-comparten").hidden = !ajenos.length;
+    $("#me-comparten").replaceChildren(...ajenos.map((fila) => {
+      const boton = el("button");
+      boton.type = "button";
+      boton.append(el("span", null, fila.nombre), el("small", null, "Ver su mapa"));
+      boton.addEventListener("click", () => verMapaDe(fila));
+      return boton;
+    }));
+  } catch (e) {
+    lista.replaceChildren(el("p", "suave", "No se pudo cargar con quién compartes: " + e.message));
+  }
+}
+
+function errorCompartir(texto) {
+  const error = $("#compartir-error");
+  error.textContent = texto ?? "";
+  error.hidden = !texto;
+}
+
+function traducirErrorCompartir(m) {
+  if (/duplicate key/i.test(m)) return "Ya compartes tu mapa con ese correo.";
+  if (/check constraint/i.test(m)) return "Ese correo o ese nombre no valen.";
+  if (/row-level security/i.test(m)) return "No se pudo compartir con ese correo.";
+  return "No se pudo compartir: " + m;
+}
+
+async function compartirMapa() {
+  const correo = $("#compartir-correo").value.trim().toLowerCase();
+  const nombre = $("#compartir-nombre").value.trim();
+  errorCompartir(null);
+  if (!nombre) return errorCompartir("Pon tu nombre: así sabrán de quién es el mapa.");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)) return errorCompartir("Escribe el correo de la persona.");
+  if (correo === yo.correo.toLowerCase()) return errorCompartir("Ese es tu correo.");
+  const boton = $("#compartir-boton");
+  boton.disabled = true;
+  try {
+    if (compartidosActuales.length && compartidosActuales[0].nombre !== nombre) await datos.renombrar(yo.id, nombre);
+    await datos.compartir(correo, nombre);
+    $("#compartir-correo").value = "";
+    avisar(`Listo: ${correo} ya puede ver tu mapa.`);
+    await pintarCompartir();
+  } catch (e) {
+    errorCompartir(traducirErrorCompartir(e.message));
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+async function quitarPermiso(lector) {
+  if (!confirm(`¿Dejar de compartir tu mapa con ${lector}? Dejará de verlo al momento.`)) return;
+  try {
+    await datos.dejarDeCompartir(yo.id, lector);
+    avisar("Ya no puede ver tu mapa.");
+    await pintarCompartir();
+  } catch (e) {
+    errorCompartir("No se pudo quitar: " + e.message);
+  }
+}
+
+// El nombre con el que me ven, en todos mis permisos a la vez
+async function renombrarme() {
+  const nombre = $("#compartir-nombre").value.trim();
+  if (!nombre || !compartidosActuales.length || compartidosActuales[0].nombre === nombre) return;
+  try {
+    await datos.renombrar(yo.id, nombre);
+    compartidosActuales = compartidosActuales.map((f) => ({ ...f, nombre }));
+    avisar("Nombre cambiado.");
+  } catch (e) {
+    errorCompartir(traducirErrorCompartir(e.message));
+  }
+}
+
 // Compartir (Contrato «Puente con la App de avisos»): nombre y enlace de mapa; sin navigator.share, al portapapeles
 async function compartir() {
   const p = abierto;
@@ -609,7 +804,7 @@ function bloquearFicha(si) {
 // Un «quiero ir» al que ya fue: pasa a visitado con el mes de hoy
 async function yaFui() {
   const p = abierto;
-  if (!p || !esDeseo(p) || cambiandoEstado) return;
+  if (!p || !esMio(p) || !esDeseo(p) || cambiandoEstado) return;
   bloquearFicha(true);
   const hoy = new Date();
   const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-01`;
@@ -630,7 +825,7 @@ async function yaFui() {
 
 async function borrarLugar() {
   const p = abierto;
-  if (cambiandoEstado || !p || !confirm(`¿Borrar «${p.nombre}» y sus fotos? No se puede deshacer.`)) return;
+  if (cambiandoEstado || !esMio(p) || !confirm(`¿Borrar «${p.nombre}» y sus fotos? No se puede deshacer.`)) return;
   try {
     // Las que cita la fila y todo lo que haya en su carpeta (p. ej., fotos subidas en un guardado que falló)
     const rutas = new Set([...(p.fotos ?? []), ...(await datos.fotosEn(`${yo.id}/${p.id}`))]);
@@ -668,9 +863,89 @@ function cerrarVisor() {
 
 /* ---------- Formulario: nuevo lugar o editar ---------- */
 const estadoForm = () => document.querySelector('input[name="estado"]:checked')?.value ?? "visitado";
-// Un «quiero ir» no tiene fecha: el campo «Cuándo» se esconde
+// Un «quiero ir» no tiene fecha ni valoración: «Cuándo» y «Valoración» se esconden
 function pintarEstadoForm() {
-  $("#campo-cuando").hidden = estadoForm() === "quiero_ir";
+  $("#campo-cuando").hidden = $("#campo-valoracion").hidden = estadoForm() === "quiero_ir";
+}
+
+// La valoración: cinco estrellas; tocar la que ya está marcada la quita
+function pintarValoracion() {
+  const caja = $("#valoracion");
+  caja.replaceChildren(...[1, 2, 3, 4, 5].map((n) => {
+    const boton = el("button", "estrella", n <= (form?.valoracion ?? 0) ? "★" : "☆");
+    boton.type = "button";
+    boton.setAttribute("aria-label", `${n} de 5`);
+    boton.setAttribute("aria-pressed", String(form?.valoracion === n));
+    boton.addEventListener("click", () => {
+      if (!form || form.guardando) return;
+      form.valoracion = form.valoracion === n ? null : n;
+      pintarValoracion();
+    });
+    return boton;
+  }));
+}
+
+// Una experiencia en el formulario: tipo, estrellas, nombre y qué te pareció (se leen todas al guardar)
+function anadirExperiencia(x = { tipo: "comer", nombre: "", texto: "", estrellas: null }) {
+  const caja = $("#experiencias-form");
+  if (caja.children.length >= MAX_EXPERIENCIAS) return;
+  const bloque = el("div", "experiencia-edicion");
+  const fila = el("div", "fila");
+  const tipo = el("select", "entrada exp-tipo");
+  tipo.setAttribute("aria-label", "Tipo");
+  for (const t of TIPOS) {
+    const opcion = el("option", null, `${t.icono} ${t.nombre}`);
+    opcion.value = t.id;
+    tipo.append(opcion);
+  }
+  tipo.value = x.tipo;
+  const valor = el("select", "entrada exp-estrellas");
+  valor.setAttribute("aria-label", "Estrellas");
+  for (const n of ["", 5, 4, 3, 2, 1]) {
+    const opcion = el("option", null, n ? estrellas(n) : "Sin estrellas");
+    opcion.value = String(n);
+    valor.append(opcion);
+  }
+  valor.value = x.estrellas ? String(x.estrellas) : "";
+  const quitar = el("button", "quitar-exp");
+  quitar.type = "button";
+  quitar.setAttribute("aria-label", "Quitar esta experiencia");
+  quitar.append(icono("M6 6l12 12M18 6L6 18"));
+  quitar.addEventListener("click", () => {
+    if (form?.guardando) return;
+    bloque.remove();
+    pintarAnadirExperiencia();
+  });
+  fila.append(tipo, valor, quitar);
+  const nombre = el("input", "entrada exp-nombre");
+  nombre.type = "text";
+  nombre.maxLength = MAX_NOMBRE;
+  nombre.placeholder = "Nombre (p. ej., Café Turri)";
+  nombre.setAttribute("aria-label", "Nombre");
+  nombre.value = x.nombre ?? "";
+  const texto = el("textarea", "entrada exp-texto");
+  texto.maxLength = MAX_TEXTO;
+  texto.rows = 2;
+  texto.placeholder = "Qué te pareció";
+  texto.setAttribute("aria-label", "Qué te pareció");
+  texto.value = x.texto ?? "";
+  bloque.append(fila, nombre, texto);
+  caja.append(bloque);
+  pintarAnadirExperiencia();
+  return bloque;
+}
+
+function pintarAnadirExperiencia() {
+  $("#anadir-experiencia").hidden = $("#experiencias-form").children.length >= MAX_EXPERIENCIAS;
+}
+
+function leerExperiencias() {
+  return [...document.querySelectorAll("#experiencias-form .experiencia-edicion")].map((b) => ({
+    tipo: b.querySelector(".exp-tipo").value,
+    nombre: b.querySelector(".exp-nombre").value,
+    texto: b.querySelector(".exp-texto").value,
+    estrellas: b.querySelector(".exp-estrellas").value,
+  }));
 }
 
 function abrirForm(p = null) {
@@ -683,6 +958,7 @@ function abrirForm(p = null) {
     nuevas: [],
     preparando: 0, // fotos elegidas que aún se están preparando
     guardando: false,
+    valoracion: p?.valoracion ?? null,
   };
   $("#form-titulo").textContent = p ? "Editar lugar" : "Nuevo lugar";
   $("#campo-nombre").value = p?.nombre ?? "";
@@ -691,6 +967,10 @@ function abrirForm(p = null) {
   pintarEstadoForm();
   $("#campo-fecha").value = p?.fecha ? p.fecha.slice(0, 7) : "";
   $("#campo-relato").value = p?.relato ?? "";
+  pintarValoracion();
+  $("#experiencias-form").replaceChildren();
+  for (const x of p?.experiencias ?? []) anadirExperiencia(x);
+  pintarAnadirExperiencia();
   $("#buscar-texto").value = "";
   $("#sugerencias").hidden = true;
   ponerError(null);
@@ -954,6 +1234,11 @@ async function guardar(e) {
   if (!form || form.guardando || form.preparando > 0) return;
   const nombre = $("#campo-nombre").value.trim();
   if (!form.donde || !nombre) return;
+  const experiencias = limpiarExperiencias(leerExperiencias());
+  if (experiencias.error) {
+    ponerError(experiencias.error);
+    return;
+  }
   form.guardando = true;
   validarForm();
   ponerError(null);
@@ -972,6 +1257,8 @@ async function guardar(e) {
     estado: estadoForm(),
     fecha: estadoForm() !== "quiero_ir" && /^\d{4}-\d{2}$/.test(mes) ? `${mes}-01` : null,
     relato: $("#campo-relato").value.trim(),
+    valoracion: estadoForm() === "quiero_ir" ? null : form.valoracion,
+    experiencias: experiencias.lista,
     ...(form.donde.forma !== undefined ? { forma: form.donde.forma } : {}),
   };
   const eraNuevo = !form.editando;
@@ -1104,6 +1391,7 @@ function abrirPerfil() {
     boton.append(el("span", null, p.nombre), el("small", null, nombrePais(p.pais)));
     boton.addEventListener("click", () => {
       cerrarHojas();
+      volverAlMio();
       mapa?.irA(p.lat, p.lon);
       abrirLugar(p);
     });
@@ -1118,6 +1406,7 @@ function abrirPerfil() {
         el("small", null, [p.fecha ? textoFecha(p.fecha) : null, nombrePais(p.pais)].filter(Boolean).join(" · ")));
       boton.addEventListener("click", () => {
         cerrarHojas();
+        volverAlMio();
         mapa?.irA(p.lat, p.lon);
         abrirLugar(p);
       });
@@ -1125,6 +1414,7 @@ function abrirPerfil() {
     })
     : [el("p", "suave", "Aún no hay lugares.")]));
   abrirHoja("hoja-perfil");
+  pintarCompartir();
 }
 
 /* ---------- Copia de seguridad ---------- */
@@ -1170,7 +1460,8 @@ async function descargarCopia() {
       }
       lugares.push({
         id: p.id, nombre: p.nombre, estado: p.estado ?? "visitado", pais: p.pais, lat: p.lat, lon: p.lon, fecha: p.fecha,
-        relato: p.relato, forma: p.forma ?? null, creado_en: p.creado_en, fotos: rutas,
+        relato: p.relato, valoracion: p.valoracion ?? null, experiencias: p.experiencias ?? [],
+        forma: p.forma ?? null, creado_en: p.creado_en, fotos: rutas,
       });
     }
     const ahora = new Date();
@@ -1214,7 +1505,7 @@ function ponerEventos() {
   $("#velo").addEventListener("click", () => cerrarHojas());
   for (const b of document.querySelectorAll(".hoja .cerrar")) b.addEventListener("click", () => cerrarHojas());
   $("#lugar-editar").addEventListener("click", () => {
-    if (!cambiandoEstado) abrirForm(abierto);
+    if (!cambiandoEstado && esMio(abierto)) abrirForm(abierto);
   });
   $("#lugar-borrar").addEventListener("click", borrarLugar);
   $("#lugar-compartir").addEventListener("click", compartir);
@@ -1222,6 +1513,19 @@ function ponerEventos() {
   $("#lugar-volver").addEventListener("click", cerrarFicha);
   $("#lugar-ver-fotos").addEventListener("click", abrirFotos);
   $("#fotos-volver").addEventListener("click", cerrarFotos);
+  $("#anadir-experiencia").addEventListener("click", () => {
+    if (form?.guardando) return;
+    anadirExperiencia()?.querySelector(".exp-nombre").focus();
+  });
+  $("#ajeno-volver").addEventListener("click", volverAlMio);
+  $("#compartir-boton").addEventListener("click", compartirMapa);
+  $("#compartir-correo").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      compartirMapa();
+    }
+  });
+  $("#compartir-nombre").addEventListener("change", renombrarme);
   $("#lugar-portada").addEventListener("click", (e) => {
     if (!e.target.closest("button") && fotosFicha.length) abrirVisor(fotosFicha, 0);
   });
@@ -1258,7 +1562,8 @@ function ponerEventos() {
     else if (elegirEnMapa) cancelarElegir();
     else if (document.querySelector(".hoja.abierta")) cerrarHojas();
     else if (fotosAbiertas()) cerrarFotos();
-    else cerrarFicha();
+    else if (fichaAbierta()) cerrarFicha();
+    else volverAlMio();
   });
 }
 

@@ -97,7 +97,7 @@ Ficheros: `manifest.webmanifest`, `sw.js` e `icons/` (`icono-192.png`, `icono-51
 - `index.html` enlaza el manifiesto (`<link rel="manifest" href="manifest.webmanifest">`) y el icono de iPhone
   (`<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">`), y registra `./sw.js`.
 - `sw.js` guarda la cáscara propia (`ASSETS`: `./`, `index.html`, `style.css`, `app.js`, `mapa.js`, `fotos.js`, `copia.js`, `puente.js`,
-  `config.js`, el manifiesto y los iconos) y lo que se pida a los CDN (`cdn.jsdelivr.net`, `cdnjs.cloudflare.com`) y a
+  `experiencias.js`, `config.js`, el manifiesto y los iconos) y lo que se pida a los CDN (`cdn.jsdelivr.net`, `cdnjs.cloudflare.com`) y a
   Google Fonts. Red primero y caché de respaldo, para que funcione sin conexión.
 - **Nunca toca lo que va a Supabase** (datos ni fotos): siempre va directo a la red.
 - Convenio: si cambia un fichero de `ASSETS` o una URL de CDN, se sube el número de `CACHE` (`mundi-v1`, `mundi-v2`…).
@@ -155,7 +155,11 @@ Ficheros: `index.html`, `app.js`, `style.css` y `config.js`. Usa los Contratos B
 - **Capa de datos:** todo lo que va a Supabase pasa por un objeto `datos` con esta forma (la de ejemplo la imita):
   - `sesion()` → `{ id, correo }` o `null`; `entrar(correo, clave)` → `{ id, correo }` (lanza `Error`); `salir()`.
   - `esPersona()` → boolean (la función `mundi_es_persona`).
-  - `listar()` → pinchos; `crear(fila)` → pincho; `actualizar(id, campos)` → pincho; `borrar(id)`.
+  - `listar(dueno)` → los pinchos de ese dueño (los míos o los de quien me comparte su mapa); `crear(fila)` → pincho;
+    `actualizar(id, campos)` → pincho; `borrar(id)`.
+  - `compartidos(dueno)` → `[{ lector, nombre, creado_en }]`, con quién comparto; `compartir(lector, nombre)`;
+    `renombrar(dueno, nombre)` (cambia el nombre en todos mis permisos); `dejarDeCompartir(dueno, lector)`;
+    `meComparten(correo)` → `[{ dueno, dueno_correo, nombre }]`, quién me comparte su mapa.
   - `subirFoto(ruta, blob)`; `urlsFirmadas(rutas)` → `{ [ruta]: url }`; `quitarFotos(rutas)`; `fotosEn(carpeta)` →
     las rutas de los archivos de esa carpeta del almacén.
 - **Guardar** espera a que terminen de prepararse las fotos elegidas: mientras tanto, el botón está desactivado.
@@ -178,7 +182,8 @@ Fichero: `copia.js` (módulo ES, sin dependencias). Prueba: `setup/pruebas/copia
 **La copia que descarga la Interfaz** (`mundi-copia-AAAA-MM-DD.zip`):
 
 - `lugares.json`: `{ "version": 1, "exportado": "<fecha ISO>", "lugares": [...] }`. Cada lugar lleva `id`, `nombre`,
-  `pais`, `lat`, `lon`, `fecha`, `relato`, `creado_en` y `fotos`: las rutas de sus fotos dentro del ZIP.
+  `estado`, `pais`, `lat`, `lon`, `fecha`, `relato`, `valoracion`, `experiencias`, `forma`, `creado_en` y `fotos`: las
+  rutas de sus fotos dentro del ZIP. La copia es solo de mis lugares, nunca de los mapas que me comparten.
 - `fotos/<NNN>-<nombre del lugar>/<k>.jpg`: las fotos de cada lugar, en orden (`NNN`, el número del lugar, con tres
   cifras).
 - `LEEME.txt`: qué es la copia y cómo está organizada.
@@ -264,3 +269,29 @@ Ficheros nuevos: `datos/limites.json` (lo genera `setup/limites.mjs` desde Natur
   app gasta su paso (`history.back()`), para que el siguiente «atrás» no pida nada.
 - **Editar** abre el formulario encima de la ficha; al guardar, la ficha enseña los cambios. «Elegir en el mapa»
   cierra la ficha para dejar ver el mapa (al guardar se queda en el mapa). Borrar cierra la ficha.
+
+## Interfaz — experiencias (añadido)
+
+Fichero nuevo: `experiencias.js` (módulo ES, sin dependencias; prueba `setup/pruebas/experiencias.test.mjs`): `TIPOS`
+(comer 🍽️, dormir 🛏️, visitar 🏛️, hacer 🥾, consejo 💡, en ese orden), `experienciaValida`, `experienciasValidas` y
+`valoracionValida` (las mismas reglas que la base, contando caracteres como ella), `limpiarExperiencias(borradores)` →
+`{ lista }` o `{ error }`, `agruparPorTipo(lista)` y `estrellas(n)` («★★★★☆»).
+
+- **En el formulario**, después del relato: la valoración (cinco estrellas; tocar la marcada la quita; oculta y null en
+  un «quiero ir») y las experiencias, cada una con tipo, estrellas (o ninguna), nombre y «qué te pareció»; «Añadir
+  experiencia» (hasta 30) y una ✕ para quitarla. Al guardar se recortan los espacios, se quitan las del todo vacías y,
+  si alguna tiene algo pero no nombre, se avisa y no se guarda nada.
+- **En la ficha**, después de las fotos: «Experiencias» (o «Valoración», si solo hay valoración) con las estrellas del
+  lugar y las experiencias agrupadas por tipo; sin valoración ni experiencias, la sección no sale.
+
+## Interfaz — compartir el mapa (añadido)
+
+- **En el perfil**, «Mapas que te comparten» (si hay alguno): un botón por persona, con el nombre que ella puso; y
+  «Compartir mi mapa»: «Tu nombre, como te verán» (obligatorio para compartir; cambiarlo lo cambia en todos tus
+  permisos), la lista de con quién compartes con «Quitar» (pide confirmación) y un campo de correo con «Compartir». No
+  se comparte con tu propio correo ni dos veces con el mismo; los errores se dicen en palabras.
+- **Ver un mapa que te comparten:** el mapa pasa a enseñar sus lugares (filtro, cifras y polaroids, de ese mapa) y,
+  abajo, «Mapa de <nombre> · Volver al mío». Sus fichas solo se miran (sin «Ya fui», «Editar» ni «Borrar»; «Compartir»
+  sí) y dicen «Del mapa de <nombre>». No se pueden clavar pinchos (sin «+»). «Volver al mío», Escape o el «atrás» del
+  teléfono (después de cerrar lo que esté encima) vuelven a tu mapa; abrir uno de tus lugares desde el perfil, también.
+- La copia de seguridad y las cifras del perfil son siempre de tus lugares.

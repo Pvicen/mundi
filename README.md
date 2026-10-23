@@ -21,6 +21,9 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | Botón «Instalar Mundi» (al entrar y en el perfil; si el navegador no lo ofrece, una pista de cómo hacerlo) | Hecho |
 | De lejos, un punto por país; al acercar, los pinchos y las líneas grises de regiones y provincias | Hecho |
 | La ficha de un lugar como pantalla aparte (diseño «Diario»), con el «atrás» del teléfono | Hecho |
+| En la ficha, una muestra de fotos y su propia pantalla con todas; logo «Mapa plegado» | Hecho |
+| Valoración y experiencias de cada lugar (comer, dormir, visitar, hacer, consejo) | Hecho; falta ejecutar su SQL |
+| Compartir tu mapa, en solo lectura, con quien tú elijas; ver los mapas que te comparten | Hecho; falta ejecutar su SQL |
 
 ## Cómo está hecha
 
@@ -43,6 +46,8 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | `fotos.js` | Prepara cada foto antes de subirla |
 | `copia.js` | Arma el .zip de la copia de seguridad (sin librerías) |
 | `puente.js` | El texto que se comparte de un lugar (nombre y enlace de Google Maps); acuerdo en `docs/puente-avisos.md` |
+| `experiencias.js` | Los tipos de experiencia y sus reglas (las mismas que la base) |
+| `setup/migraciones/2026-10-23-compartir-y-experiencias.sql` | Compartir el mapa en solo lectura y las experiencias; su prueba, `setup/pruebas/bd-compartir.md` |
 | `mapa.js` | El mapamundi (d3 y Natural Earth a 1:50 millones); se prueba en `setup/pruebas/mapa.html` |
 | `datos/limites.json` | Las líneas grises de regiones y provincias (Natural Earth 1:10 millones, dominio público); se rehace con `node setup/limites.mjs <geojson>` (la URL, en su cabecera) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Lo que permite instalarla y abrirla sin conexión |

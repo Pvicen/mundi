@@ -2,9 +2,11 @@
 // app.js los carga solo en localhost con ?ejemplo. Lugares inventados; las fotos viven en memoria y se pierden al
 // recargar. Imita las reglas de la base (Contrato BD) para que los errores salgan aquí también.
 // Opciones en la URL: ?ejemplo&fuera (empieza sin sesión; la contraseña de prueba está en CLAVE_PRUEBA),
-// ?ejemplo&sinacceso (la cuenta no está en la lista), ?ejemplo&vacio (sin lugares) y ?ejemplo&fallofotos (falla
-// la subida de fotos).
+// ?ejemplo&sinacceso (la cuenta no está en la lista), ?ejemplo&vacio (sin lugares), ?ejemplo&fallofotos (falla
+// la subida de fotos) y ?ejemplo&sinpermiso (nadie te comparte su mapa; sin ella, «Suegro (ejemplo)» te comparte el
+// suyo, con dos lugares).
 import { formaValida } from "../../mapa.js";
+import { experienciasValidas, valoracionValida } from "../../experiencias.js";
 
 export const CLAVE_PRUEBA = "ejemplo";
 
@@ -24,6 +26,9 @@ function comprobarFila(p) {
     throw new Error('violates check constraint "mundi_pinchos_forma_check"');
   }
   if (!["visitado", "quiero_ir"].includes(p.estado)) throw new Error('violates check constraint "mundi_pinchos_estado_check"');
+  // Las mismas reglas que la base (setup/migraciones/2026-10-23-compartir-y-experiencias.sql)
+  if (!valoracionValida(p.valoracion)) throw new Error('violates check constraint "mundi_pinchos_valoracion_check"');
+  if (!experienciasValidas(p.experiencias)) throw new Error('violates check constraint "mundi_pinchos_experiencias_check"');
   if (p.miniatura !== null && !(p.miniatura.length <= 300 && p.miniatura.startsWith(p.dueno + "/"))) {
     throw new Error('violates check constraint "mundi_pinchos_miniatura_check"');
   }
@@ -32,19 +37,38 @@ function comprobarFila(p) {
 export function crearDatosEjemplo() {
   const opciones = new URLSearchParams(location.search);
   const yo = { id: "00000000-0000-4000-8000-000000000001", correo: "ejemplo@ejemplo.com" };
+  // Otra persona inventada que comparte su mapa conmigo
+  const otro = { id: "00000000-0000-4000-8000-000000000002", correo: "suegro@ejemplo.com", nombre: "Suegro (ejemplo)" };
   let dentro = !opciones.has("fuera");
   const fotos = new Map(); // ruta → Blob
+  const base = (dueno, prefijo) => (p, i) => ({
+    id: `00000000-0000-4000-8000-000000000${prefijo}${i}`, dueno, fotos: [], forma: null, miniatura: null,
+    estado: "visitado", valoracion: null, experiencias: [], creado_en: `2026-01-0${i + 1}T10:00:00Z`, ...p,
+  });
   let pinchos = opciones.has("vacio") ? [] : [
     { nombre: "Madrid", pais: "ES", lat: 40.4168, lon: -3.7038, fecha: "2025-09-01", relato: "Primer mes de intercambio." },
     { nombre: "París", pais: "FR", lat: 48.8566, lon: 2.3522, fecha: "2025-12-01", relato: "" },
     { nombre: "Lyon", pais: "FR", lat: 45.764, lon: 4.8357, fecha: "2025-12-01", relato: "Fête des Lumières." },
-    { nombre: "Santorini", pais: "GR", lat: 36.3932, lon: 25.4615, fecha: "2026-06-01", relato: "Atardecer en Oia.\nCalor." },
+    { nombre: "Santorini", pais: "GR", lat: 36.3932, lon: 25.4615, fecha: "2026-06-01", relato: "Atardecer en Oia.\nCalor.",
+      valoracion: 5, experiencias: [
+        { tipo: "comer", nombre: "Taberna del puerto", texto: "Pulpo a la brasa y vistas a la caldera.", estrellas: 5 },
+        { tipo: "dormir", nombre: "Casa cueva en Oia", estrellas: 4 },
+        { tipo: "consejo", nombre: "Llegar antes de las siete", texto: "Al atardecer no cabe un alfiler." },
+      ] },
     { nombre: "Santiago", pais: "CL", lat: -33.4489, lon: -70.6693, fecha: null, relato: "Casa." },
     { nombre: "Museo del Prado", pais: "ES", lat: 40.4138, lon: -3.6921, fecha: null, relato: "", estado: "quiero_ir" },
-  ].map((p, i) => ({
-    id: `00000000-0000-4000-8000-00000000010${i}`, dueno: yo.id, fotos: [], forma: null, miniatura: null, estado: "visitado", creado_en: `2026-01-0${i + 1}T10:00:00Z`, ...p,
-  }));
-  const copia = (p) => ({ ...p, fotos: [...p.fotos] });
+  ].map(base(yo.id, "10"));
+  pinchos.push(...[
+    { nombre: "Cusco", pais: "PE", lat: -13.5319, lon: -71.9675, fecha: "2024-05-01", relato: "Mucho mate de coca.",
+      valoracion: 4, experiencias: [{ tipo: "visitar", nombre: "Sacsayhuamán", estrellas: 5 }] },
+    { nombre: "Roma", pais: "IT", lat: 41.9028, lon: 12.4964, fecha: "2023-10-01", relato: "" },
+  ].map(base(otro.id, "20")));
+  // Los permisos: el suyo conmigo; los míos, vacíos al empezar (?ejemplo&sinpermiso: nadie me comparte nada)
+  let permisos = opciones.has("sinpermiso") ? [] :
+    [{ dueno: otro.id, dueno_correo: otro.correo, nombre: otro.nombre, lector: yo.correo, creado_en: "2026-01-01T10:00:00Z" }];
+  const copia = (p) => ({ ...p, fotos: [...p.fotos], experiencias: [...(p.experiencias ?? [])] });
+  // Como la base: se leen los míos y los de quien me comparte; se escriben solo los míos
+  const puedoLeer = (dueno) => dueno === yo.id || permisos.some((x) => x.dueno === dueno && x.lector === yo.correo);
 
   return {
     async sesion() {
@@ -64,21 +88,22 @@ export function crearDatosEjemplo() {
       await espera();
       return !opciones.has("sinacceso");
     },
-    async listar() {
+    async listar(dueno) {
       await espera();
-      return pinchos.map(copia);
+      return pinchos.filter((p) => p.dueno === dueno && puedoLeer(p.dueno)).map(copia);
     },
     async crear(fila) {
       await espera();
-      const p = { id: crypto.randomUUID(), dueno: yo.id, fecha: null, relato: "", fotos: [], forma: null, miniatura: null, estado: "visitado", ...fila,
-        creado_en: new Date().toISOString() };
+      const p = { id: crypto.randomUUID(), dueno: yo.id, fecha: null, relato: "", fotos: [], forma: null, miniatura: null,
+        estado: "visitado", valoracion: null, experiencias: [], ...fila, creado_en: new Date().toISOString() };
+      if (p.dueno !== yo.id) throw new Error("new row violates row-level security policy");
       comprobarFila(p);
       pinchos.push(p);
       return copia(p);
     },
     async actualizar(id, campos) {
       await espera();
-      const p = pinchos.find((x) => x.id === id);
+      const p = pinchos.find((x) => x.id === id && x.dueno === yo.id);
       if (!p) throw new Error("JSON object requested, multiple (or no) rows returned");
       const nuevo = { ...p, ...campos };
       comprobarFila(nuevo);
@@ -87,7 +112,37 @@ export function crearDatosEjemplo() {
     },
     async borrar(id) {
       await espera();
-      pinchos = pinchos.filter((x) => x.id !== id);
+      pinchos = pinchos.filter((x) => !(x.id === id && x.dueno === yo.id));
+    },
+    async compartidos(dueno) {
+      await espera();
+      return permisos.filter((x) => x.dueno === dueno && dueno === yo.id)
+        .map(({ lector, nombre, creado_en }) => ({ lector, nombre, creado_en }));
+    },
+    async compartir(lector, nombre) {
+      await espera();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(lector) || lector !== lector.trim().toLowerCase()
+        || ![...nombre.trim()].length || [...nombre.trim()].length > 40) {
+        throw new Error('violates check constraint "mundi_compartidos_lector_check"');
+      }
+      if (lector === yo.correo) throw new Error("new row violates row-level security policy");
+      if (permisos.some((x) => x.dueno === yo.id && x.lector === lector)) {
+        throw new Error('duplicate key value violates unique constraint "mundi_compartidos_pkey"');
+      }
+      permisos.push({ dueno: yo.id, dueno_correo: yo.correo, nombre, lector, creado_en: new Date().toISOString() });
+    },
+    async renombrar(dueno, nombre) {
+      await espera();
+      for (const x of permisos) if (x.dueno === dueno && dueno === yo.id) x.nombre = nombre;
+    },
+    async dejarDeCompartir(dueno, lector) {
+      await espera();
+      permisos = permisos.filter((x) => !(x.dueno === dueno && dueno === yo.id && x.lector === lector));
+    },
+    async meComparten(correo) {
+      await espera();
+      return permisos.filter((x) => x.lector === correo.toLowerCase() && x.lector === yo.correo)
+        .map(({ dueno, dueno_correo, nombre }) => ({ dueno, dueno_correo, nombre }));
     },
     async subirFoto(ruta, blob) {
       await espera(200);

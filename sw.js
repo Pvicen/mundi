@@ -13,6 +13,7 @@ const ASSETS = [
   "./fotos.js",
   "./copia.js",
   "./puente.js",
+  "./experiencias.js",
   "./config.js",
   "./manifest.webmanifest",
   "./icons/icono-192.png",
