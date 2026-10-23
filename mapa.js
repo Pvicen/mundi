@@ -428,7 +428,7 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
       .data(grupos, (g) => g.clave)
       .join((entra) => entra.append("g").each(function (g) {
         const sel = d3.select(this).attr("tabindex", 0).attr("role", "button");
-        if (g.porPais) {
+        if (g.porPais && g.pinchos.length > 1) {
           sel.append("circle").attr("class", "mm-grupo-fondo").attr("cy", -12).attr("r", 15);
           sel.append("text").attr("class", "mm-grupo-num").attr("y", -12).text(g.pinchos.length);
           if (g.pais) sel.append("text").attr("class", "mm-pais-nombre").attr("y", 16).text(nombrePais(g.pais));
@@ -436,7 +436,9 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
         } else if (g.polaroid) {
           polaroid(sel, g.pinchos[0]);
         } else if (g.pinchos.length === 1) {
+          // Un país con un solo lugar se ve con su pincho, no con un «1»
           cuerpoPincho(sel.append("g").attr("class", "mm-cuerpo"));
+          if (g.porPais && g.pais) sel.append("text").attr("class", "mm-pais-nombre").attr("y", 14).text(nombrePais(g.pais));
           sel.append("circle").attr("class", "mm-toque").attr("cy", -14).attr("r", 18);
         } else {
           sel.append("circle").attr("class", "mm-grupo-fondo").attr("cy", -12).attr("r", 15);
@@ -448,13 +450,11 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
         + (g.pinchos.length === 1 && g.pinchos[0].id === resaltado ? " mm-nuevo" : ""))
       .attr("aria-label", (g) => {
         const nombres = g.pinchos.map((p) => p.nombre).join(", ");
-        if (g.porPais) {
-          const cuantos = g.pinchos.length === 1 ? "1 lugar" : `${g.pinchos.length} lugares`;
-          return g.pais ? `${nombrePais(g.pais)}, ${cuantos}: ${nombres}` : `${cuantos}: ${nombres}`;
+        if (g.pinchos.length === 1) {
+          return g.pinchos[0].nombre + (g.porPais && g.pais ? `, ${nombrePais(g.pais)}` : "") + (g.deseo ? " (quiero ir)" : "");
         }
-        return g.pinchos.length === 1
-          ? g.pinchos[0].nombre + (g.deseo ? " (quiero ir)" : "")
-          : `${g.pinchos.length} lugares: ${nombres}`;
+        if (g.porPais && g.pais) return `${nombrePais(g.pais)}, ${g.pinchos.length} lugares: ${nombres}`;
+        return `${g.pinchos.length} lugares: ${nombres}`;
       })
       .attr("transform", (g) => `translate(${g.x.toFixed(1)},${g.y.toFixed(1)})`)
       .each(function (g) {
@@ -480,10 +480,11 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     }
   }
 
-  // Un pincho solo se abre; un grupo acerca el mapa a sus lugares y el punto de un país, al país entero
+  // Un pincho solo se abre (también el único de un país); un grupo acerca el mapa a sus lugares y el punto de un país
+  // con varios, al país entero
   function tocarGrupo(g) {
-    if (g.porPais) ir(transformacionPais(g));
-    else if (g.pinchos.length === 1) alTocarPincho(g.pinchos[0]);
+    if (g.pinchos.length === 1) alTocarPincho(g.pinchos[0]);
+    else if (g.porPais) ir(transformacionPais(g));
     else ir(transformacionPara(g.pinchos, 70));
   }
 

@@ -201,6 +201,8 @@ Ficheros nuevos: `datos/limites.json` (lo genera `setup/limites.mjs` desde Natur
   en el lugar suyo más céntrico, con el nombre del país en español debajo si no lo tapa otro punto; los pinchos sin
   país, cada uno solo; dos puntos que quedan encima se juntan (sin nombre). Tocar el punto de un país acerca el mapa
   a ese país entero (su trozo más grande, más sus lugares), ya por encima de `ZOOM_PAISES`. No hay líneas grises.
+  Un país con un solo lugar no lleva círculo con «1»: se ve su pincho (con el nombre del país debajo) y tocarlo abre
+  su ficha.
 - **Desde `ZOOM_PAISES`,** como antes: los pinchos (los cercanos en pantalla, juntos con su número) y, desde el zoom
   4, las polaroids.
 - **Líneas grises de regiones y provincias:** desde `ZOOM_PAISES`, cada capa (país y nivel) aparece poco a poco cuando
