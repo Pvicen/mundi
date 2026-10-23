@@ -85,5 +85,11 @@ Vicente: «soy solo yo, y sigo lo que recomiendas y propones».
   (camino A: el mismo mapa de papel); la ficha de un lugar como pantalla aparte (diseño «Diario») con el «atrás» del
   teléfono. Publicados tras dos vueltas de revisión de GPT (un defecto del «atrás» arreglado; «CAJA APROBADA» sobre
   `ad4ae4c`). Sin SQL. Pendiente: el logo (Vicente elige) y la cuenta de su suegro, con su propio mapa.
+- **24/10:** correcciones (país con un solo lugar con su pincho; logo «Mapa plegado»; en la ficha, tres fotos y una
+  pantalla con todas), **experiencias y valoración** de cada lugar y **compartir el mapa** en solo lectura con quien
+  cada uno elija (opción A). «CAJA APROBADA» de GPT sobre `e901bb1` a la primera; migración
+  `2026-10-23-compartir-y-experiencias.sql` ejecutada (PASA) y su prueba `setup/pruebas/bd-compartir.md` (29 PASA).
+  Publicado. Pendiente: dar de alta a su suegro y compartirle el mapa; «Cambiar contraseña» y qué hacer con los
+  olvidos, sin decidir.
 - Pendiente de Vicente: verificar cada Caja al terminarla y ejecutar el SQL en Supabase. Lo que tenga que pegar se
   le da completo y ya rellenado.
