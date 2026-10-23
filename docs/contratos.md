@@ -4,7 +4,7 @@ El único puente entre Cajas (método C.C.D. §2): cada Caja se programa leyendo
 
 ## BD — los datos en Supabase
 
-Migraciones: `setup/migraciones/2026-10-12-mundi.sql` y `2026-10-13-forma-y-miniatura.sql` y `2026-10-13-quiero-ir.sql` y `2026-10-13-forma-estricta.sql` (en orden). Prueba: `setup/pruebas/bd.md`.
+Migraciones: `setup/migraciones/2026-10-12-mundi.sql` y `2026-10-13-forma-y-miniatura.sql` y `2026-10-13-quiero-ir.sql` y `2026-10-13-forma-estricta.sql` y `2026-10-23-compartir-y-experiencias.sql` (en orden). Pruebas: `setup/pruebas/bd.md` y `setup/pruebas/bd-compartir.md`.
 Proyecto de Supabase: el mismo de la App de avisos. Todo lo de Mundi lleva el prefijo `mundi` y no toca nada suyo.
 
 ### Tabla `mundi_pinchos` (un pincho = un lugar donde estuvo)
@@ -45,6 +45,37 @@ Proyecto de Supabase: el mismo de la App de avisos. Todo lo de Mundi lleva el pr
   guarda `fotos` con sus rutas.
 - Borrar un pincho: primero se borran sus fotos del almacén (las que cita la fila y todo lo que haya en su carpeta
   `<dueno>/<id>/`) y luego la fila (la base no borra archivos).
+
+## BD — compartir el mapa y experiencias (añadido)
+
+Migración `setup/migraciones/2026-10-23-compartir-y-experiencias.sql`; prueba `setup/pruebas/bd-compartir.md`.
+
+**Columnas nuevas de `mundi_pinchos`:**
+
+| Columna | Tipo | Regla |
+|---|---|---|
+| `valoracion` | smallint o null | De 1 a 5; null si no se valora |
+| `experiencias` | jsonb | `[]` por defecto. Hasta 30 objetos `{ tipo, nombre, texto?, estrellas? }`, sin más claves: `tipo` es `comer`, `dormir`, `visitar`, `hacer` o `consejo`; `nombre`, texto de 1 a 80 caracteres sin contar los espacios de los lados; `texto`, hasta 1000; `estrellas`, un entero de 1 a 5 o null. Lo comprueba `mundi_experiencias_validas()` |
+
+Las experiencias y la valoración las escribe solo el dueño del pincho (las mismas reglas de escritura de siempre).
+
+**Tabla `mundi_compartidos`** (un permiso = «este dueño comparte su mapa entero con este correo»):
+
+| Columna | Tipo | Regla |
+|---|---|---|
+| `dueno` | uuid | Lo pone la base: el `auth.uid()` de la sesión. No puede ser otro |
+| `dueno_correo` | text | Lo pone la base: el correo de la sesión, en minúsculas. No puede ser otro |
+| `nombre` | text | Cómo verá al dueño quien recibe el permiso (p. ej., «Vicente»): de 1 a 40 caracteres |
+| `lector` | text | El correo con quien se comparte, en minúsculas; no puede ser el del dueño |
+| `creado_en` | timestamptz | Lo pone la base |
+
+Clave: (`dueno`, `lector`). **Reglas:**
+
+- Solo el dueño da, cambia y quita sus permisos. Una fila la ven su dueño y su `lector`; nadie más.
+- Quien recibe un permiso (y está en `mundi_personas`) puede **leer** los pinchos de ese dueño y sus fotos del almacén
+  (`<dueno>/…`); no puede crear, cambiar ni borrar nada suyo. Lo decide `mundi_me_comparte(dueno en texto)`.
+- Quitar el permiso corta el acceso al momento; los enlaces firmados que ya tuviera caducan solos (una hora).
+- Como los pinchos que se pueden leer ya no son solo los propios, la app siempre pide los de un dueño concreto.
 
 ## Fotos — preparar una foto antes de subirla
 
