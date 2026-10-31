@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mundi · prueba del mapa</title>
+<meta name="robots" content="noindex">
+<!-- Prueba del mapa «como Google Maps» (camino B, 31/10): MapLibre con las teselas libres de OpenFreeMap
+     (OpenStreetMap), en dos estilos. Pinchos inventados; no es la app ni usa Supabase. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,800&family=Outfit:wght@400;600;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --pared: #F3EAD7; --tinta: #3B2F22; --tinta-2: #6B5843; --pin: #B23A2B; --sup: #FFFBF2; --linea: #DCCDB0;
+    --tierra-borde: #A58C68; --sombra: 0 2px 8px rgba(59, 47, 34, .18);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--pared); color: var(--tinta); font: 15px/1.4 "Outfit", system-ui, sans-serif; overflow: hidden; }
+  #mapa { position: fixed; inset: 0; }
+  .barra {
+    position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; right: 10px; z-index: 2;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 8px 10px; border-radius: 10px; background: var(--sup); border: 1px dashed var(--tierra-borde);
+    box-shadow: var(--sombra);
+  }
+  .barra h1 { margin: 0; font: 800 18px "Fraunces", Georgia, serif; }
+  .barra p { margin: 0; font-size: 12px; color: var(--tinta-2); flex: 1 1 140px; }
+  .estilos { display: flex; gap: 6px; }
+  .estilos button {
+    border: 1px solid var(--tierra-borde); background: var(--sup); color: var(--tinta); border-radius: 999px;
+    padding: 6px 12px; font: 600 13px "Outfit", system-ui, sans-serif;
+  }
+  .estilos button[aria-pressed="true"] { background: var(--tinta); color: var(--pared); border-color: var(--tinta); }
+  .zoom {
+    position: fixed; left: 10px; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); z-index: 2;
+    padding: 5px 10px; border-radius: 999px; background: var(--tinta); color: var(--pared); font-weight: 600; font-size: 13px;
+    box-shadow: var(--sombra);
+  }
+  .ir { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; }
+  .ir button {
+    border: 0; background: none; color: var(--pin); font: 600 13px "Outfit", system-ui, sans-serif; padding: 2px 4px;
+    text-decoration: underline;
+  }
+  /* El pincho de Mundi, igual que en la app */
+  .pincho { width: 22px; height: 30px; cursor: pointer; filter: drop-shadow(1px 1px 1px rgba(59, 47, 34, .35)); }
+  .maplibregl-popup-content { font: 600 14px "Outfit", system-ui, sans-serif; color: var(--tinta); border-radius: 8px; }
+</style>
+</head>
+<body>
+<div id="mapa"></div>
+<header class="barra">
+  <h1>Prueba del mapa</h1>
+  <p>Acerca y aleja para ver cómo salen los nombres y los límites. Pinchos inventados; no es la app.</p>
+  <div class="estilos" role="group" aria-label="Estilo del mapa">
+    <button type="button" data-estilo="papel" aria-pressed="true">Papel</button>
+    <button type="button" data-estilo="google" aria-pressed="false">Tipo Google</button>
+  </div>
+  <div class="ir">
+    <span>Ir a:</span>
+    <button type="button" data-ir="mundo">el mundo</button>
+    <button type="button" data-ir="espana">España</button>
+    <button type="button" data-ir="murcia">Murcia</button>
+    <button type="button" data-ir="molina">Altorreal y La Alcayna</button>
+  </div>
+</header>
+<div class="zoom" id="zoom" aria-live="polite"></div>
+
+<script>
+"use strict";
+const ESTILO = "https://tiles.openfreemap.org/styles/liberty";
+const VISTAS = {
+  mundo: { center: [0, 25], zoom: 1.2 },
+  espana: { center: [-3.7, 40.2], zoom: 5 },
+  murcia: { center: [-1.13, 37.99], zoom: 10.5 },
+  molina: { center: [-1.17, 38.085], zoom: 14 },
+};
+// Lugares inventados para ver los pinchos encima del mapa
+const PINCHOS = [
+  { nombre: "Murcia", lon: -1.1307, lat: 37.9922 },
+  { nombre: "Valencia", lon: -0.3763, lat: 39.4699 },
+  { nombre: "Lisboa", lon: -9.1393, lat: 38.7223 },
+  { nombre: "Santiago de Chile", lon: -70.6693, lat: -33.4489 },
+  { nombre: "Kioto", lon: 135.7681, lat: 35.0116 },
+];
+
+// Los nombres, en español si OpenStreetMap lo tiene; si no, el del sitio
+const NOMBRE = ["coalesce", ["get", "name:es"], ["get", "name:latin"], ["get", "name"]];
+
+// «Papel»: los colores de Mundi sobre el mismo mapa
+const PAPEL = {
+  fondo: "#F3EAD7", agua: "#CFDCCF", verde: "#DCE2C4", ciudad: "#EEE3CB", edificio: "#E6D8BC",
+  calle: "#FFFBF2", borde: "#DCCDB0", autopista: "#E8C987", autopistaBorde: "#C9A15A",
+  limite: "#A39A8E", texto: "#3B2F22", halo: "#F8F1E1",
+};
+
+function enEspanol(mapa) {
+  for (const capa of mapa.getStyle().layers) {
+    if (capa.type !== "symbol") continue;
+    const texto = capa.layout?.["text-field"];
+    if (texto && JSON.stringify(texto).includes("name")) mapa.setLayoutProperty(capa.id, "text-field", NOMBRE);
+  }
+}
+
+function aPapel(mapa) {
+  // Una propiedad que no vale para esa capa no debe parar el resto
+  const p = (id, prop, valor) => {
+    try {
+      if (mapa.getLayer(id)) mapa.setPaintProperty(id, prop, valor);
+    } catch {}
+  };
+  for (const capa of mapa.getStyle().layers) {
+    const id = capa.id;
+    if (capa.type === "background") p(id, "background-color", PAPEL.fondo);
+    else if (capa.type === "raster") p(id, "raster-opacity", 0.18);
+    else if (id === "water") p(id, "fill-color", PAPEL.agua);
+    else if (id.startsWith("waterway") && capa.type === "line") p(id, "line-color", PAPEL.agua);
+    else if (/park|wood|grass|wetland|pitch|cemetery/.test(id) && capa.type === "fill") p(id, "fill-color", PAPEL.verde);
+    else if (id === "landuse_residential") p(id, "fill-color", PAPEL.ciudad);
+    else if (id === "building") p(id, "fill-color", PAPEL.edificio);
+    else if (id === "building-3d") p(id, "fill-extrusion-color", PAPEL.edificio);
+    else if (capa.type === "line" && /motorway/.test(id) && /casing/.test(id)) p(id, "line-color", PAPEL.autopistaBorde);
+    else if (capa.type === "line" && /motorway/.test(id)) p(id, "line-color", PAPEL.autopista);
+    else if (capa.type === "line" && /casing/.test(id)) p(id, "line-color", PAPEL.borde);
+    else if (capa.type === "line" && /^(road|bridge|tunnel)_/.test(id) && !/rail/.test(id)) p(id, "line-color", PAPEL.calle);
+    else if (id.startsWith("boundary")) p(id, "line-color", PAPEL.limite);
+    else if (capa.type === "symbol" && capa["source-layer"] === "place") {
+      p(id, "text-color", PAPEL.texto);
+      p(id, "text-halo-color", PAPEL.halo);
+    }
+  }
+}
+
+// Los límites de provincias y municipios (si las teselas los traen), grises y a trazos, al acercar
+function limitesLocales(mapa, estilo) {
+  if (mapa.getLayer("mundi-limites-locales")) return;
+  mapa.addLayer({
+    id: "mundi-limites-locales",
+    type: "line",
+    source: "openmaptiles",
+    "source-layer": "boundary",
+    minzoom: 7,
+    filter: ["all", [">=", ["get", "admin_level"], 5], ["<=", ["get", "admin_level"], 8], ["!=", ["get", "maritime"], 1]],
+    paint: {
+      "line-color": estilo === "papel" ? PAPEL.limite : "#9e9cab",
+      "line-width": ["interpolate", ["linear"], ["zoom"], 7, 0.6, 12, 1.4],
+      "line-dasharray": [3, 2],
+      "line-opacity": ["interpolate", ["linear"], ["zoom"], 7, 0.4, 10, 0.9],
+    },
+  }, mapa.getLayer("waterway_line_label") ? "waterway_line_label" : undefined);
+}
+
+const mapa = new maplibregl.Map({
+  container: "mapa",
+  style: ESTILO,
+  center: VISTAS.espana.center,
+  zoom: VISTAS.espana.zoom,
+  attributionControl: { compact: true },
+});
+mapa.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
+
+let estilo = "papel";
+function prepararEstilo() {
+  enEspanol(mapa);
+  if (estilo === "papel") aPapel(mapa);
+  limitesLocales(mapa, estilo);
+}
+mapa.on("style.load", prepararEstilo);
+
+function pincho() {
+  const ns = "http://www.w3.org/2000/svg";
+  const s = document.createElementNS(ns, "svg");
+  s.setAttribute("viewBox", "0 0 22 30");
+  s.setAttribute("class", "pincho");
+  const aguja = document.createElementNS(ns, "line");
+  Object.entries({ x1: 11, y1: 29, x2: 11, y2: 15, stroke: "#6B5843", "stroke-width": 2, "stroke-linecap": "round" })
+    .forEach(([k, v]) => aguja.setAttribute(k, v));
+  const cabeza = document.createElementNS(ns, "circle");
+  Object.entries({ cx: 11, cy: 9, r: 8, fill: "#B23A2B", stroke: "#FFFBF2", "stroke-width": 1.2 })
+    .forEach(([k, v]) => cabeza.setAttribute(k, v));
+  const brillo = document.createElementNS(ns, "circle");
+  Object.entries({ cx: 8.5, cy: 6.5, r: 2.4, fill: "#FFFFFF", opacity: 0.6 }).forEach(([k, v]) => brillo.setAttribute(k, v));
+  s.append(aguja, cabeza, brillo);
+  return s;
+}
+for (const p of PINCHOS) {
+  const popup = new maplibregl.Popup({ offset: 26 }).setText(`${p.nombre} (de ejemplo)`);
+  new maplibregl.Marker({ element: pincho(), anchor: "bottom" }).setLngLat([p.lon, p.lat]).setPopup(popup).addTo(mapa);
+}
+
+const zoom = document.getElementById("zoom");
+const pintarZoom = () => { zoom.textContent = `Zoom ${mapa.getZoom().toFixed(1)}`; };
+mapa.on("zoom", pintarZoom);
+pintarZoom();
+
+for (const b of document.querySelectorAll("[data-estilo]")) {
+  b.addEventListener("click", () => {
+    if (estilo === b.dataset.estilo) return;
+    estilo = b.dataset.estilo;
+    for (const x of document.querySelectorAll("[data-estilo]")) x.setAttribute("aria-pressed", String(x === b));
+    mapa.setStyle(ESTILO, { diff: false }); // carga entera: «style.load» vuelve a poner español, colores y límites
+  });
+}
+for (const b of document.querySelectorAll("[data-ir]")) {
+  b.addEventListener("click", () => mapa.flyTo({ ...VISTAS[b.dataset.ir], speed: 1.4 }));
+}
+</script>
+</body>
+</html>

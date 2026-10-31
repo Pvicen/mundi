@@ -47,6 +47,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | `copia.js` | Arma el .zip de la copia de seguridad (sin librerías) |
 | `puente.js` | El texto que se comparte de un lugar (nombre y enlace de Google Maps); acuerdo en `docs/puente-avisos.md` |
 | `experiencias.js` | Los tipos de experiencia y sus reglas (las mismas que la base) |
+| `prueba-mapa.html` | Prueba del mapa «como Google Maps» (camino B: MapLibre + OpenFreeMap), con pinchos inventados; temporal, para verla en el teléfono antes de cambiar el mapa de la app |
 | `setup/migraciones/2026-10-23-compartir-y-experiencias.sql` | Compartir el mapa en solo lectura y las experiencias; su prueba, `setup/pruebas/bd-compartir.md` |
 | `mapa.js` | El mapamundi (d3 y Natural Earth a 1:50 millones); se prueba en `setup/pruebas/mapa.html` |
 | `datos/limites.json` | Las líneas grises de regiones y provincias (Natural Earth 1:10 millones, dominio público); se rehace con `node setup/limites.mjs <geojson>` (la URL, en su cabecera) |
