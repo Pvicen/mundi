@@ -7,7 +7,7 @@ sobre) el `AGENTS.md` general de `C:\Dev`. Vicente decide; la IA ejecuta la Caja
 ## Método C.C.D. y escalada de modelos
 
 **C**ajas, **C**ontratos y **D**euda Técnica. Documento maestro de Vicente (2026-09-25; §6
-añadido el 2026-10-08), piedra angular de todo repo bajo `C:\Dev`; se reproduce igual en cada
+añadido el 2026-10-08; Fable 5.2 en el §5 desde el 2026-11-10), piedra angular de todo repo bajo `C:\Dev`; se reproduce igual en cada
 `AGENTS.md`. La IA solo ejecuta lo que Vicente manda por Cajas.
 
 ### 1. Ley primera: avance sobre perfección
@@ -42,14 +42,14 @@ Feliz» funciona y no hay riesgos graves, se aprueba y se avanza.
 * **Nivel 1 — El día a día (Opus 5.5, modo estándar):** el 90 % del trabajo. Hacer moldes,
   programar Cajas individuales a partir de Contratos, lanzar subagentes de exploración. Consumo
   eficiente.
-* **Nivel 2 — El refactorizador menor (Fable 5.1, modo estándar):** cuando hay un cambio de rumbo
+* **Nivel 2 — El refactorizador menor (Fable 5.2, modo estándar):** cuando hay un cambio de rumbo
   arquitectónico y hay que reescribir varios archivos para que sigan una nueva lógica. Mantiene
   excelente coherencia narrativa.
 * **Nivel 3 — El botón nuclear algorítmico (Opus 5.5, UltraCode):** uso quirúrgico y
   ultra-restringido. Solo para crear desde cero cuellos de botella lógicos o matemáticos muy
   complejos (p. ej. el motor del Análisis Financiero). Se usa, se copia el código y se vuelve al
   Nivel 1.
-* **Nivel 4 — El mega-refactor / cataclismo (Fable 5.1, UltraCode):** solo en migraciones masivas
+* **Nivel 4 — El mega-refactor / cataclismo (Fable 5.2, UltraCode):** solo en migraciones masivas
   de tecnología o cambios estructurales que reescriben la mayoría del proyecto manteniendo lógica
   compleja de fondo.
 * **Nivel 5 — El Tribunal Supremo / auditor final (GPT-6 Astra Ultra):** la última fase de la
