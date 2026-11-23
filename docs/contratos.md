@@ -162,7 +162,9 @@ los iconos y las letras vienen de `tiles.openfreemap.org`.
   hsl); si no, y siempre de noche (el mapa sigue en «Papel» claro), los claros de `style.css`. Sus clases empiezan por
   `mm-`, para no chocar con las de la Interfaz; las de MapLibre, por `maplibregl-`.
 - **Atribución** (obligatoria): el control compacto de MapLibre, abajo a la izquierda, con la de OpenFreeMap,
-  OpenMapTiles y OpenStreetMap más «Natural Earth».
+  OpenMapTiles y OpenStreetMap más «Natural Earth». Es fija: va en cada fuente de `datos/papel.json` (`ATRIBUCION` de
+  `setup/papel.mjs`), porque MapLibre la pone en la página como HTML y, si la fuente no la trae, usa la que manda el
+  servidor con el índice de teselas.
 - Lo que cruza la línea de cambio de fecha (Rusia, Fiyi, un contorno o una mancha junto a ella) se parte en dos para
   el mapa plano (`partirEnLaFecha`); un anillo que rodea un polo (la Antártida) se queda como está.
 

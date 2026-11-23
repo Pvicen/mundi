@@ -24,6 +24,13 @@ export const OPACIDAD_RELIEVE = 0.18;
 export const NOMBRE = ["coalesce", ["get", "name:es"], ["get", "name:latin"], ["get", "name"]];
 export const ID_LIMITES = "mm-limites-locales";
 
+// Los créditos del mapa, fijos en el repo (los de OpenFreeMap, tal cual). MapLibre pone en la página como HTML los de
+// cada fuente y, si la fuente no los trae, usa los del índice de teselas que manda el servidor; su filtro deja pasar
+// código, así que lo que llegue de fuera nunca entra en la página
+export const ATRIBUCION = '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> '
+  + '<a href="https://www.openmaptiles.org/" target="_blank">&copy; OpenMapTiles</a> '
+  + 'Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>';
+
 // Qué propiedades de pintura admite cada tipo de capa: una que no vale invalidaría el estilo entero
 const PREFIJOS = {
   background: ["background-"], raster: ["raster-"], fill: ["fill-"], line: ["line-"], symbol: ["text-", "icon-"],
@@ -63,6 +70,7 @@ export function aPapel(liberty, { origen = URL_LIBERTY, fecha = "" } = {}) {
   const estilo = structuredClone(liberty);
   estilo.name = "Mundi Papel";
   estilo.metadata = { ...(estilo.metadata ?? {}), "mundi:origen": origen, "mundi:fecha": fecha };
+  for (const fuente of Object.values(estilo.sources)) fuente.attribution = ATRIBUCION;
   estilo.layers = estilo.layers.filter((c) => c.id !== "building-3d" && c.id !== ID_LIMITES);
   for (const capa of estilo.layers) {
     const id = String(capa.id);

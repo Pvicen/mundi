@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { CAPA_LIMITES, ID_LIMITES, NOMBRE, OPACIDAD_RELIEVE, PAPEL, aPapel } from "../papel.mjs";
+import { ATRIBUCION, CAPA_LIMITES, ID_LIMITES, NOMBRE, OPACIDAD_RELIEVE, PAPEL, aPapel } from "../papel.mjs";
 
 // Un liberty de juguete con una capa de cada clase que toca el generador
 const liberty = () => ({
@@ -85,6 +85,24 @@ test("aPapel: nombres en español, sin edificios en 3D y con las líneas locales
   }
 });
 
+test("aPapel: los créditos de cada fuente son los fijos, aunque el original traiga otros", () => {
+  const original = liberty();
+  // Lo que se cuela por el filtro de MapLibre: dos atributos peligrosos seguidos
+  original.sources.openmaptiles.attribution = '<img src="x" onfoo="1" onerror="alert(1)">';
+  original.sources.ne2_shaded = { type: "raster", tiles: ["https://tiles.openfreemap.org/natural_earth/ne2sr/{z}/{x}/{y}.png"] };
+  const papel = aPapel(original);
+  assert.deepEqual(Object.keys(papel.sources).sort(), ["ne2_shaded", "openmaptiles"]);
+  for (const [id, fuente] of Object.entries(papel.sources)) assert.equal(fuente.attribution, ATRIBUCION, id);
+  assert.equal(papel.sources.openmaptiles.url, "https://tiles.openfreemap.org/planet");
+});
+
+test("ATRIBUCION: solo los tres enlaces https, sin nada que se ejecute", () => {
+  const sinEnlaces = ATRIBUCION.replace(/<a href="https:\/\/[^"<>]+" target="_blank">[^<>]*<\/a>/g, "");
+  assert.doesNotMatch(sinEnlaces, /[<>]/);
+  assert.equal(ATRIBUCION.match(/<a /g).length, 3);
+  for (const nombre of ["OpenFreeMap", "OpenMapTiles", "OpenStreetMap"]) assert.ok(ATRIBUCION.includes(nombre), nombre);
+});
+
 test("aPapel: si faltan capas no se rompe; sin nombres de ríos, las líneas van antes del primer nombre", () => {
   const recortado = liberty();
   recortado.layers = recortado.layers.filter((c) => !["waterway_line_label", "water", "building"].includes(c.id));
@@ -118,7 +136,11 @@ test("datos/papel.json: el estilo del repo es «Papel» de OpenFreeMap", async (
   const conNombre = papel.layers.filter((c) => JSON.stringify(c.layout?.["text-field"] ?? "").includes("name"));
   assert.ok(conNombre.length > 10);
   for (const c of conNombre) assert.deepEqual(c.layout["text-field"], NOMBRE, c.id);
-  // Solo habla con OpenFreeMap
-  const urls = JSON.stringify(papel).match(/https?:\/\/[^"]+/g);
+  // Los créditos, los fijos en todas las fuentes: los que manda el servidor con el índice de teselas no se usan
+  for (const [id, fuente] of Object.entries(papel.sources)) assert.equal(fuente.attribution, ATRIBUCION, id);
+  // Solo habla con OpenFreeMap (los enlaces de los créditos se tocan; no son peticiones del mapa)
+  const sinCreditos = structuredClone(papel);
+  for (const fuente of Object.values(sinCreditos.sources)) delete fuente.attribution;
+  const urls = JSON.stringify(sinCreditos).match(/https?:\/\/[^"]+/g);
   for (const u of urls) assert.match(u, /^https:\/\/tiles\.openfreemap\.org\//, u);
 });
