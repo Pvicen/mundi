@@ -1,46 +1,57 @@
-// Caja Mapa de Mundi (Contrato «Mapa» de docs/contratos.md).
-// El mapamundi: países, pinchos agrupados, zoom y toques. Usa los globales `d3` y `topojson` (cargados antes desde
-// cdnjs) y descarga la geometría de Natural Earth a 1:50 millones (world-atlas). Los pinchos se dibujan en
-// coordenadas de pantalla, encima del mundo, para que no crezcan al acercar. De lejos se ve solo el mundo con un punto
-// por país; al acercar salen los pinchos y, poco a poco, las líneas grises de regiones y provincias (datos/limites.json).
+// Caja Mapa de Mundi (Contrato «Mapa» de docs/contratos.md; Contrato 387 del 23/11/2026).
+// El mapamundi «como Google Maps» con el fondo «Papel»: MapLibre GL JS dibuja las teselas de OpenStreetMap
+// (OpenFreeMap) con el estilo fijo datos/papel.json y, debajo, el mundo de world-atlas, por si las teselas no llegan.
+// Los países visitados y la zona de cada lugar van en el lienzo; los pinchos, los grupos y las polaroids, en una capa
+// SVG propia encima, en coordenadas de pantalla, para que no crezcan al acercar. Usa los globales `maplibregl`, `d3` y
+// `topojson`, cargados antes por la página. Al importarse no toca la página ni la red: lo importa también Node.
 
 export const URL_GEOMETRIA = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json";
-// Las líneas grises de regiones y provincias (limites.v1, las prepara setup/limites.mjs); viven junto a mapa.js
-export const URL_LIMITES = new URL("datos/limites.json", import.meta.url).href;
+// El fondo «Papel» (lo genera setup/papel.mjs); vive junto a mapa.js
+export const URL_PAPEL = new URL("datos/papel.json", import.meta.url).href;
+
+// Zoom de MapLibre: el mundo mide 512 px en el nivel 0
+export const ZOOM_PAISES = 2.5; // por debajo, un punto por país
+export const ZOOM_FOTOS = 3.3; // desde aquí, los pinchos con foto (portada) se ven como polaroids
+export const ZOOM_PUNTO = 10; // «ir a un lugar» y encuadrar un solo pincho: la ciudad y sus alrededores
+export const TOPE_ENCUADRE = 14; // como mucho, al encuadrar varios pinchos o tocar un grupo
+export const ZOOM_MAXIMO = 18; // los barrios
 export const RADIO_GRUPO = 24; // px: pinchos más cerca que esto en pantalla van juntos
-export const ZOOM_PAISES = 2.5; // por debajo, un punto por país y sin líneas; desde aquí, los pinchos y las líneas
-const ADELANTO_LIMITES = 2; // cada capa de líneas sale 2 niveles antes del zoom que propone Natural Earth
-const FUNDIDO_LIMITES = 0.6; // niveles de zoom en los que una capa pasa de invisible a entera
-const ZOOM_MAXIMO = 120;
-const RADIO_ZONA_KM = 9; // la mancha de un lugar sin contorno
-const ZOOM_FOTOS = 4; // desde este zoom, los pinchos con foto (portada) se ven como polaroids
-const RADIO_GRUPO_FOTOS = 62;
+export const RADIO_GRUPO_FOTOS = 62; // px, con polaroids
+export const RADIO_ZONA_KM = 9; // la mancha de un lugar sin contorno
+export const LAT_MAXIMA = 85.05113; // Mercator no llega más allá
+// La vista inicial: el mundo habitado, de alto
+export const VISTA_INICIAL = { sur: -60, norte: 80, lon: 0 };
+// Lo que tapa la Interfaz alrededor del mapa (el filtro arriba, los botones a la derecha, la franja abajo)
+export const HUECOS = { top: 64, right: 80, bottom: 96, left: 32 };
+const DURACION = 850; // ms de cada movimiento de cámara
+const TIEMPO_MAXIMO = 15_000; // ms para tener el mapa; si no, se rechaza
+const ESPERA_TOQUE = 300; // ms: un toque en el mapa espera por si es el primero de un doble toque
+const TOLERANCIA_TOQUE = 6; // px que se puede mover el dedo y seguir siendo un toque
+
+// El mundo de respaldo, debajo de las teselas: mar, tierra y costas, en los colores de «Papel»
+const BASE = { agua: "#CFDCCF", fondo: "#F3EAD7", costa: "#A58C68" };
+// Los colores de lo de Mundi; en claro, los de la página (style.css) si los tiene
+export const PALETA = {
+  pin: "#B23A2B", deseo: "#3D7A74", visitado: "#E2B85C", visitadoBorde: "#8A6E4B", sup: "#FFFBF2", postal: "#FFFFFF",
+  tinta: "#3B2F22", tinta2: "#6B5843", tinta3: "#9A8468",
+};
+const VARIABLES = {
+  pin: "--pin", deseo: "--deseo", visitado: "--visitado", visitadoBorde: "--visitado-borde", sup: "--sup",
+  postal: "--postal", tinta: "--tinta", tinta2: "--tinta-2", tinta3: "--tinta-3",
+};
+export const CAPAS_PROPIAS = ["mm-tierra", "mm-costas", "mm-visitados", "mm-zonas-relleno", "mm-zonas-borde"];
+
+// Los textos de MapLibre, en español
+const TEXTOS = {
+  "Map.Title": "Mapa",
+  "AttributionControl.ToggleAttribution": "Créditos del mapa",
+  "AttributionControl.MapFeedback": "Mejorar este mapa",
+  "NavigationControl.ZoomIn": "Acercar",
+  "NavigationControl.ZoomOut": "Alejar",
+  "Marker.Title": "Marcador",
+};
+
 let clipsCreados = 0;
-
-// Un giro pequeño y siempre el mismo para cada pincho, como una foto clavada a mano
-function giro(id) {
-  let h = 0;
-  for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0;
-  return ((Math.abs(h) % 13) - 6) * 1.1;
-}
-
-function polaroid(sel, p) {
-  sel.append("line").attr("class", "mm-hilo").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", -10);
-  sel.append("ellipse").attr("class", "mm-sombra").attr("rx", 4).attr("ry", 1.6);
-  const marco = sel.append("g").attr("class", "mm-polaroid").attr("transform", `translate(0,-44) rotate(${giro(p.id)})`);
-  marco.append("rect").attr("class", "mm-polaroid-sombra").attr("x", -25).attr("y", -28).attr("width", 52).attr("height", 62);
-  marco.append("rect").attr("class", "mm-polaroid-papel").attr("x", -27).attr("y", -31).attr("width", 54).attr("height", 62).attr("rx", 1.5);
-  const clip = `mm-clip-${++clipsCreados}`;
-  marco.append("clipPath").attr("id", clip).append("rect").attr("x", -23).attr("y", -27).attr("width", 46).attr("height", 42);
-  marco.append("image").attr("href", p.portada).attr("x", -23).attr("y", -27).attr("width", 46).attr("height", 42)
-    .attr("preserveAspectRatio", "xMidYMid slice").attr("clip-path", `url(#${clip})`);
-  const nombre = p.nombre.length > 13 ? p.nombre.slice(0, 12) + "…" : p.nombre;
-  marco.append("text").attr("class", "mm-polaroid-nombre").attr("y", 25).text(nombre);
-  marco.append("circle").attr("class", "mm-cabeza").attr("cy", -31).attr("r", 4.6);
-  marco.append("circle").attr("class", "mm-brillo").attr("cx", -1.4).attr("cy", -32.4).attr("r", 1.4);
-  sel.append("rect").attr("class", "mm-toque").attr("x", -30).attr("y", -80).attr("width", 60).attr("height", 82);
-}
-const ZOOM_PUNTO = 6;
 
 // ISO 3166-1: el código numérico (el id de world-atlas) → alfa-2 (el `pais` de la base)
 export const ISO = {
@@ -81,7 +92,6 @@ export function alfa2(pais) {
   return ISO[pais?.id] ?? SIN_CODIGO[pais?.properties?.name] ?? null;
 }
 
-// Agrupa puntos de pantalla [{ x, y, pincho }] que queden a menos de `radio` px → [{ x, y, pinchos }]
 // ¿Es un contorno que se puede dibujar? Polygon o MultiPolygon con anillos de al menos 4 puntos [lon, lat] en rango
 const esNumero = (n) => typeof n === "number" && Number.isFinite(n);
 const puntoValido = (p) => Array.isArray(p) && p.length >= 2 && esNumero(p[0]) && esNumero(p[1])
@@ -97,6 +107,7 @@ export function formaValida(forma) {
   return false;
 }
 
+// Agrupa puntos de pantalla [{ x, y, pincho }] que queden a menos de `radio` px → [{ x, y, pinchos }]
 export function agrupar(puntos, radio = RADIO_GRUPO) {
   const grupos = [];
   for (const p of [...puntos].sort((a, b) => a.y - b.y || a.x - b.x)) {
@@ -150,84 +161,255 @@ export function nombrePais(codigo) {
   }
 }
 
-// El nivel de zoom de un mapa web (el mundo mide 256 px en el nivel 0) que equivale a ver el mundo con `anchoMundo` px
-export const zoomWeb = (anchoMundo, k) => Math.log2((anchoMundo * k) / 256);
+// Los «quiero ir» no cuentan como visitados: ni pintan su país ni su lugar, ni llevan polaroid
+export const esDeseo = (p) => p?.estado === "quiero_ir";
 
-// limites.v1: una línea en milésimas de grado y en diferencias [lon0, lat0, dlon1, dlat1, …] → [[lon, lat], …]
-export function decodificarLinea(codificada) {
-  const puntos = [];
-  let x = 0, y = 0;
-  for (let i = 0; i + 1 < codificada.length; i += 2) {
-    x += codificada[i];
-    y += codificada[i + 1];
-    puntos.push([x / 1000, y / 1000]);
-  }
-  return puntos;
+// Un giro pequeño y siempre el mismo para cada pincho, como una foto clavada a mano (de −6,6° a 6,6°)
+export function giro(id) {
+  let h = 0;
+  for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return ((Math.abs(h) % 13) - 6) * 1.1;
 }
 
-// Las capas del fichero de límites, una por país y nivel: [{ clave, pais, z, geo }] (`geo`, un MultiLineString).
-// Lo que no tenga la forma de limites.v1 se ignora: unas líneas rotas nunca impiden dibujar el mapa
-export function capasDeLimites(datos) {
-  if (datos?.tipo !== "limites.v1" || !Array.isArray(datos.paises)) return [];
-  const capas = [];
-  for (const p of datos.paises) {
-    if (typeof p?.pais !== "string" || !Array.isArray(p.niveles)) continue;
-    for (const n of p.niveles) {
-      if (!Number.isFinite(n?.z) || !Array.isArray(n.lineas)) continue;
-      const lineas = n.lineas
-        .filter((l) => Array.isArray(l) && l.length >= 4 && l.length % 2 === 0 && l.every(Number.isFinite))
-        .map(decodificarLinea)
-        .filter((l) => l.every(([lon, lat]) => Math.abs(lon) <= 180 && Math.abs(lat) <= 90));
-      if (lineas.length) {
-        capas.push({ clave: `${p.pais}:${n.z}`, pais: p.pais, z: n.z, geo: { type: "MultiLineString", coordinates: lineas } });
-      }
+export const redondear = (n) => Math.round(n * 1e5) / 1e5;
+
+// Una longitud cualquiera, llevada a −180..180 (la base de datos no acepta otra)
+export function normalizarLon(lon) {
+  if (lon >= -180 && lon <= 180) return lon;
+  return ((((lon + 180) % 360) + 360) % 360) - 180;
+}
+
+// Mercator: la latitud → la altura en el mundo (0 arriba, 1 abajo), y al revés
+const mercY = (lat) => {
+  const s = Math.sin((lat * Math.PI) / 180);
+  return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+};
+const latDeMercY = (y) => (360 / Math.PI) * Math.atan(Math.exp((0.5 - y) * 2 * Math.PI)) - 90;
+
+// La vista que enseña de `sur` a `norte` llenando `alto` px: { zoom, lat } del centro
+export function vistaDeAlto(alto, sur = VISTA_INICIAL.sur, norte = VISTA_INICIAL.norte) {
+  const yN = mercY(norte);
+  const yS = mercY(sur);
+  const zoom = alto > 0 ? Math.log2(alto / ((yS - yN) * 512)) : 1;
+  return { zoom, lat: latDeMercY((yN + yS) / 2) };
+}
+
+// Hasta dónde se puede alejar: hasta que el mundo llena el mapa a lo ancho y a lo alto (como el mundo no se repite a
+// los lados, MapLibre no deja ver más allá). En un teléfono en vertical eso son unos 180° de ancho
+export function zoomMinimo(ancho, alto) {
+  return Math.max(-2, Math.log2(Math.max(ancho, alto, 1) / 512));
+}
+
+// La mancha de un lugar sin contorno: un círculo de `km` alrededor del punto, como polígono GeoJSON
+export function mancha(lat, lon, km = RADIO_ZONA_KM, lados = 64) {
+  const d = km / 6371.0088;
+  const f = (lat * Math.PI) / 180;
+  const l = (lon * Math.PI) / 180;
+  const anillo = [];
+  for (let i = 0; i < lados; i++) {
+    const rumbo = (2 * Math.PI * i) / lados;
+    const f2 = Math.asin(Math.sin(f) * Math.cos(d) + Math.cos(f) * Math.sin(d) * Math.cos(rumbo));
+    const l2 = l + Math.atan2(Math.sin(rumbo) * Math.sin(d) * Math.cos(f), Math.cos(d) - Math.sin(f) * Math.sin(f2));
+    anillo.push([redondear(normalizarLon((l2 * 180) / Math.PI)), redondear((f2 * 180) / Math.PI)]);
+  }
+  anillo.push([...anillo[0]]);
+  return { type: "Polygon", coordinates: [anillo] };
+}
+
+// world-atlas está hecho para el globo: Rusia, Fiyi o un contorno junto a la línea de cambio de fecha la cruzan con un
+// salto de más de 180° entre dos puntos seguidos, que en el mapa plano sería una raya de lado a lado. Esos polígonos
+// se parten en dos: lo de un lado y lo del otro. Un anillo que rodea un polo (la Antártida) se queda como está
+const cruzaLaFecha = (anillo) => anillo.some((p, i) => i > 0 && Math.abs(p[0] - anillo[i - 1][0]) > 180);
+function desplegar(anillo) {
+  let suma = 0;
+  return anillo.map((p, i) => {
+    if (i > 0) {
+      const salto = p[0] - anillo[i - 1][0];
+      if (salto > 180) suma -= 360;
+      else if (salto < -180) suma += 360;
+    }
+    return [p[0] + suma, p[1]];
+  });
+}
+// Sutherland-Hodgman contra una recta vertical: se queda con lo que cumple `dentro`
+function recortarVertical(anillo, x0, dentro) {
+  const salida = [];
+  for (let i = 0; i < anillo.length - 1; i++) {
+    const a = anillo[i];
+    const b = anillo[i + 1];
+    const corte = () => [x0, a[1] + ((b[1] - a[1]) * (x0 - a[0])) / (b[0] - a[0])];
+    if (dentro(a)) {
+      salida.push(a);
+      if (!dentro(b)) salida.push(corte());
+    } else if (dentro(b)) {
+      salida.push(corte());
     }
   }
-  return capas;
+  if (salida.length) salida.push([...salida[0]]);
+  return salida;
+}
+const recortarAlMundo = (anillo) =>
+  recortarVertical(recortarVertical(anillo, 180, (p) => p[0] <= 180), -180, (p) => p[0] >= -180);
+
+export function partirEnLaFecha(geometria) {
+  const poligonos = geometria?.type === "Polygon" ? [geometria.coordinates]
+    : geometria?.type === "MultiPolygon" ? geometria.coordinates : null;
+  if (!poligonos || !poligonos.some((pol) => pol.some(cruzaLaFecha))) return geometria;
+  const salida = [];
+  for (const pol of poligonos) {
+    const desplegados = pol.map(desplegar);
+    const exterior = desplegados[0];
+    const rodeaUnPolo = Math.abs(exterior.at(-1)[0] - exterior[0][0]) > 180;
+    if (!pol.some(cruzaLaFecha) || rodeaUnPolo) {
+      salida.push(pol);
+      continue;
+    }
+    for (const desplazamiento of [0, 360, -360]) {
+      const [fuera, ...huecos] = desplegados.map((r) => recortarAlMundo(r.map(([x, y]) => [x + desplazamiento, y])));
+      if (fuera.length >= 4) salida.push([fuera, ...huecos.filter((r) => r.length >= 4)]);
+    }
+  }
+  return { type: "MultiPolygon", coordinates: salida };
 }
 
-// Cuánto se ve una capa de líneas de nivel `zCapa` cuando el mapa está en `zActual` (zoom web) y `k` (zoom del mapa):
-// nada por debajo de ZOOM_PAISES (de lejos, solo los países); luego aparece poco a poco al acercar
-export function opacidadLimite(zCapa, zActual, k) {
-  if (!(k >= ZOOM_PAISES)) return 0;
-  const entrada = Math.min(1, Math.log2(k / ZOOM_PAISES) / 0.5);
-  const nivel = (zActual + ADELANTO_LIMITES - zCapa) / FUNDIDO_LIMITES;
-  return Math.max(0, Math.min(1, entrada, nivel));
+// La zona de cada lugar visitado: su contorno si se puede dibujar o, si no, la mancha. Un contorno roto nunca
+// impide dibujar el mapa
+export function zonasGeoJSON(pinchos) {
+  return {
+    type: "FeatureCollection",
+    features: pinchos.filter((p) => !esDeseo(p)).map((p) => ({
+      type: "Feature",
+      properties: { id: String(p.id) },
+      geometry: partirEnLaFecha(
+        formaValida(p.forma) ? { type: p.forma.type, coordinates: p.forma.coordinates } : mancha(p.lat, p.lon)),
+    })),
+  };
+}
+
+// Los países visitados (alfa-2, sin repetir): los de los lugares que no son «quiero ir»
+export function paisesVisitados(pinchos) {
+  const codigos = pinchos.filter((p) => !esDeseo(p)).map((p) => p.pais).filter((c) => /^[A-Z]{2}$/.test(c ?? ""));
+  return [...new Set(codigos)].sort();
+}
+export const filtroVisitados = (codigos) => ["in", ["get", "iso"], ["literal", codigos]];
+
+// La caja [[oeste, sur], [este, norte]] de unos pinchos
+export function cajaDe(pinchos) {
+  const lons = pinchos.map((p) => p.lon);
+  const lats = pinchos.map((p) => p.lat);
+  return [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]];
+}
+
+// Qué marca va en cada sitio a este zoom. De lejos, un punto por país; al acercar, los pinchos (los cercanos en
+// pantalla, juntos) y, desde ZOOM_FOTOS, las polaroids. [{ x, y, pincho }] → grupos con porPais, polaroid, deseo y clave
+export function marcasPara(puntos, zoom) {
+  const porPais = zoom < ZOOM_PAISES;
+  const conFotos = zoom >= ZOOM_FOTOS;
+  const grupos = porPais ? agruparPorPais(puntos) : agrupar(puntos, conFotos ? RADIO_GRUPO_FOTOS : RADIO_GRUPO);
+  for (const g of grupos) {
+    g.porPais = porPais;
+    g.polaroid = !porPais && conFotos && g.pinchos.length === 1 && !!g.pinchos[0].portada && !esDeseo(g.pinchos[0]);
+    g.deseo = g.pinchos.every(esDeseo);
+    g.clave = (porPais ? "c:" : "") + (g.polaroid ? "f:" : g.deseo ? "d:" : "p:")
+      + g.pinchos.map((p) => p.id).sort().join("|");
+  }
+  return grupos;
+}
+
+// Lo que se lee de una marca (aria-label)
+export function etiquetaDe(g) {
+  const nombres = g.pinchos.map((p) => p.nombre).join(", ");
+  if (g.pinchos.length === 1) {
+    return g.pinchos[0].nombre + (g.porPais && g.pais ? `, ${nombrePais(g.pais)}` : "") + (g.deseo ? " (quiero ir)" : "");
+  }
+  if (g.porPais && g.pais) return `${nombrePais(g.pais)}, ${g.pinchos.length} lugares: ${nombres}`;
+  return `${g.pinchos.length} lugares: ${nombres}`;
+}
+
+// Los colores de lo de Mundi. De noche, el mapa sigue en «Papel» claro (decisión del 23/11): sus colores claros fijos.
+// De día, los de la página si son colores que MapLibre entiende; si no, los claros fijos
+const COLOR_SIMPLE = /^(#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|(?:rgba?|hsla?)\([^()]*\))$/i;
+export function leerPaleta(leer, oscuro = false) {
+  const paleta = { ...PALETA };
+  if (oscuro) return paleta;
+  for (const [clave, variable] of Object.entries(VARIABLES)) {
+    const valor = String(leer(variable) ?? "").trim();
+    if (COLOR_SIMPLE.test(valor)) paleta[clave] = valor;
+  }
+  return paleta;
+}
+
+function insertarAntes(capas, capa, esLaSiguiente) {
+  let i = capas.findIndex(esLaSiguiente);
+  if (i < 0) i = capas.findIndex((c) => c.type === "symbol");
+  capas.splice(i < 0 ? capas.length : i, 0, capa);
+}
+
+// El estilo completo: «Papel» más lo propio. Debajo de todo, el mundo de respaldo (mar hasta el zoom 5, tierra de
+// world-atlas y costas); los países visitados, debajo del agua de las teselas; la zona de cada lugar, debajo de los
+// nombres. No toca `papel`
+export function componerEstilo(papel, { paises, tierra, paleta = PALETA } = {}) {
+  const vacio = { type: "FeatureCollection", features: [] };
+  const estilo = structuredClone(papel);
+  estilo.sources = {
+    ...estilo.sources,
+    "mm-tierra": { type: "geojson", data: tierra ?? vacio },
+    "mm-paises": { type: "geojson", data: paises ?? vacio },
+    "mm-zonas": { type: "geojson", data: vacio },
+  };
+  const capas = (estilo.layers ?? []).filter((c) => !CAPAS_PROPIAS.includes(c.id));
+  let fondo = capas.find((c) => c.type === "background");
+  if (!fondo) {
+    fondo = { id: "background", type: "background", paint: {} };
+    capas.unshift(fondo);
+  }
+  fondo.paint = { ...fondo.paint, "background-color": ["interpolate", ["linear"], ["zoom"], 5, BASE.agua, 7, BASE.fondo] };
+  capas.splice(capas.indexOf(fondo) + 1, 0,
+    { id: "mm-tierra", type: "fill", source: "mm-tierra", paint: { "fill-color": BASE.fondo } },
+    {
+      id: "mm-costas", type: "line", source: "mm-tierra",
+      paint: { "line-color": BASE.costa, "line-width": 0.6, "line-opacity": ["interpolate", ["linear"], ["zoom"], 4, 0.6, 7, 0] },
+    });
+  insertarAntes(capas, {
+    id: "mm-visitados", type: "fill", source: "mm-paises", filter: filtroVisitados([]),
+    paint: { "fill-color": paleta.visitado, "fill-opacity": ["interpolate", ["linear"], ["zoom"], 5, 0.3, 8, 0] },
+  }, (c) => c.id === "water");
+  insertarAntes(capas, {
+    id: "mm-zonas-relleno", type: "fill", source: "mm-zonas",
+    paint: { "fill-color": paleta.visitado, "fill-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 12, 0] },
+  }, (c) => c.type === "symbol");
+  insertarAntes(capas, {
+    id: "mm-zonas-borde", type: "line", source: "mm-zonas",
+    paint: { "line-color": paleta.visitadoBorde, "line-width": 1.2 },
+  }, (c) => c.type === "symbol");
+  estilo.layers = capas;
+  return estilo;
 }
 
 const ESTILOS = `
-.mundi-mapa { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
-.mm-oceano { fill: var(--mar, #CCE0E9); }
-.mm-graticula { fill: none; stroke: var(--grat, rgba(15, 42, 58, .09)); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.mm-pais { fill: var(--tierra, #FAFBF8); stroke: var(--tierra-borde, #A9BEC7); stroke-width: .7; vector-effect: non-scaling-stroke; transition: fill .4s; }
-/* El país visitado, suave; lo fuerte es el lugar (su contorno o su mancha) */
-.mm-pais.mm-visitado { fill: color-mix(in srgb, var(--visitado, #F0B23E) 30%, var(--tierra, #FAFBF8)); }
-/* Las líneas grises de regiones y provincias, finas y por debajo de los lugares */
-.mm-limite { fill: none; stroke: var(--limite, #A39A8E); stroke-width: .8; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; pointer-events: none; }
-.mm-pais-nombre { font: 600 11px var(--f-texto, system-ui, sans-serif); fill: var(--tinta, #0F2A3A); text-anchor: middle; paint-order: stroke; stroke: var(--pared, #FFFFFF); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.mm-capa { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; user-select: none; -webkit-user-select: none; }
+.mm-capa .mm-marca { pointer-events: auto; cursor: pointer; }
+.mm-marca:focus { outline: none; }
 .mm-polaroid-papel { fill: var(--postal, #FFFFFF); stroke: rgba(59, 47, 34, .25); stroke-width: .6; }
 .mm-polaroid-sombra { fill: #000000; opacity: .16; }
 .mm-polaroid-nombre { font: italic 600 8.5px var(--f-titulo, Georgia, serif); fill: #3B2F22; text-anchor: middle; }
-.mm-hilo { stroke: var(--tinta-2, #4C6371); stroke-width: 1.2; stroke-linecap: round; }
-.mm-zona { fill: var(--visitado, #F0B23E); fill-opacity: .8; stroke: var(--visitado-borde, #B9821A); stroke-width: 1.2; vector-effect: non-scaling-stroke; pointer-events: none; }
-.mm-marca { cursor: pointer; }
-.mm-marca:focus { outline: none; }
-.mm-sombra { fill: var(--tinta, #0F2A3A); opacity: .22; }
-.mm-aguja { stroke: var(--tinta-2, #4C6371); stroke-width: 1.6; stroke-linecap: round; }
-.mm-cabeza, .mm-grupo-fondo { fill: var(--pin, #E0352B); stroke: var(--sup, #FFFFFF); }
+.mm-hilo { stroke: var(--tinta-2, #6B5843); stroke-width: 1.2; stroke-linecap: round; }
+.mm-sombra { fill: var(--tinta, #3B2F22); opacity: .22; }
+.mm-aguja { stroke: var(--tinta-2, #6B5843); stroke-width: 1.6; stroke-linecap: round; }
+.mm-cabeza, .mm-grupo-fondo { fill: var(--pin, #B23A2B); stroke: var(--sup, #FFFBF2); }
 /* Un sitio al que se quiere ir: otro color, y un grupo solo de deseos también */
 .mm-deseo .mm-cabeza, .mm-deseo .mm-grupo-fondo { fill: var(--deseo, #3D7A74); }
 .mm-cabeza { stroke-width: 1.2; }
 .mm-grupo-fondo { stroke-width: 2.5; }
 .mm-brillo { fill: #FFFFFF; opacity: .55; }
 .mm-toque { fill: transparent; }
-.mm-marca:focus-visible .mm-cabeza, .mm-marca:focus-visible .mm-grupo-fondo { stroke: var(--tinta, #0F2A3A); stroke-width: 2.5; }
+.mm-marca:focus-visible .mm-cabeza, .mm-marca:focus-visible .mm-grupo-fondo { stroke: var(--tinta, #3B2F22); stroke-width: 2.5; }
 .mm-grupo-num { font: 600 12px var(--f-dato, ui-monospace, monospace); fill: #FFFFFF; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
 .mm-provisional { pointer-events: none; }
-.mm-provisional .mm-cabeza { fill: var(--tinta-3, #7A8F9A); }
+.mm-provisional .mm-cabeza { fill: var(--tinta-3, #9A8468); }
 .mm-nuevo .mm-cuerpo { animation: mm-clavar .7s cubic-bezier(.3, 1.4, .5, 1) both; }
 @keyframes mm-clavar { from { transform: translateY(-46px) scale(1.25); opacity: 0; } 60% { opacity: 1; } to { transform: none; opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .mm-pais { transition: none; } .mm-nuevo .mm-cuerpo { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .mm-nuevo .mm-cuerpo { animation: none; } }
 `;
 
 function ponerEstilos() {
@@ -245,200 +427,183 @@ function cuerpoPincho(g) {
   g.append("circle").attr("class", "mm-brillo").attr("cx", -2.4).attr("cy", -20.4).attr("r", 2.3);
 }
 
-const redondear = (n) => Math.round(n * 1e5) / 1e5;
+function polaroid(sel, p) {
+  sel.append("line").attr("class", "mm-hilo").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", -10);
+  sel.append("ellipse").attr("class", "mm-sombra").attr("rx", 4).attr("ry", 1.6);
+  const marco = sel.append("g").attr("class", "mm-polaroid").attr("transform", `translate(0,-44) rotate(${giro(p.id)})`);
+  marco.append("rect").attr("class", "mm-polaroid-sombra").attr("x", -25).attr("y", -28).attr("width", 52).attr("height", 62);
+  marco.append("rect").attr("class", "mm-polaroid-papel").attr("x", -27).attr("y", -31).attr("width", 54).attr("height", 62).attr("rx", 1.5);
+  const clip = `mm-clip-${++clipsCreados}`;
+  marco.append("clipPath").attr("id", clip).append("rect").attr("x", -23).attr("y", -27).attr("width", 46).attr("height", 42);
+  marco.append("image").attr("href", p.portada).attr("x", -23).attr("y", -27).attr("width", 46).attr("height", 42)
+    .attr("preserveAspectRatio", "xMidYMid slice").attr("clip-path", `url(#${clip})`);
+  const nombre = p.nombre.length > 13 ? p.nombre.slice(0, 12) + "…" : p.nombre;
+  marco.append("text").attr("class", "mm-polaroid-nombre").attr("y", 25).text(nombre);
+  marco.append("circle").attr("class", "mm-cabeza").attr("cy", -31).attr("r", 4.6);
+  marco.append("circle").attr("class", "mm-brillo").attr("cx", -1.4).attr("cy", -32.4).attr("r", 1.4);
+  sel.append("rect").attr("class", "mm-toque").attr("x", -30).attr("y", -80).attr("width", 60).attr("height", 82);
+}
+
+const SIN_CONEXION = "No se pudo cargar el mapa. Comprueba la conexión y vuelve a intentarlo.";
 
 export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarPunto = () => {} } = {}) {
   if (typeof Element === "undefined" || !(contenedor instanceof Element)) {
     throw new TypeError("crearMapa espera el elemento donde va el mapa");
   }
-  const d3 = globalThis.d3;
-  const topojson = globalThis.topojson;
+  const { maplibregl, d3, topojson } = globalThis;
+  if (!maplibregl) throw new Error("Falta MapLibre: hay que cargarlo antes que mapa.js.");
   if (!d3 || !topojson) throw new Error("Faltan d3 y topojson: hay que cargarlos antes que mapa.js.");
+  const limite = Date.now() + TIEMPO_MAXIMO;
 
-  let mundo;
+  // Los países (world-atlas) y el fondo «Papel», con un tiempo máximo entre los dos
+  const bajar = async (url) => {
+    const control = new AbortController();
+    const reloj = setTimeout(() => control.abort(), Math.max(0, limite - Date.now()));
+    try {
+      const respuesta = await fetch(url, { signal: control.signal });
+      if (!respuesta.ok) throw new Error(String(respuesta.status));
+      return await respuesta.json();
+    } finally {
+      clearTimeout(reloj);
+    }
+  };
+  let paises, tierra, papel;
   try {
-    const respuesta = await fetch(URL_GEOMETRIA);
-    if (!respuesta.ok) throw new Error(String(respuesta.status));
-    mundo = await respuesta.json();
+    const [mundo, estilo] = await Promise.all([bajar(URL_GEOMETRIA), bajar(URL_PAPEL)]);
+    paises = topojson.feature(mundo, mundo.objects.countries).features;
+    const tierraGlobo = topojson.feature(mundo, mundo.objects.land);
+    const trozos = tierraGlobo.type === "FeatureCollection" ? tierraGlobo.features : [tierraGlobo];
+    tierra = {
+      type: "FeatureCollection",
+      features: trozos.map((t) => ({ type: "Feature", properties: {}, geometry: partirEnLaFecha(t.geometry) })),
+    };
+    papel = estilo;
   } catch {
-    throw new Error("No se pudo cargar el mapa. Comprueba la conexión y vuelve a intentarlo.");
+    throw new Error(SIN_CONEXION);
   }
-  const paises = topojson.feature(mundo, mundo.objects.countries).features;
   for (const p of paises) p.alfa2 = alfa2(p);
+  const paisesGeo = {
+    type: "FeatureCollection",
+    features: paises.map((p) => ({
+      type: "Feature", properties: { iso: p.alfa2 ?? "" }, geometry: partirEnLaFecha(p.geometry),
+    })),
+  };
 
   ponerEstilos();
-  const reducirMovimiento = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const svg = d3.select(contenedor).append("svg")
-    .attr("class", "mundi-mapa")
+  const oscuro = matchMedia("(prefers-color-scheme: dark)");
+  const leer = (variable) => getComputedStyle(contenedor).getPropertyValue(variable);
+  let paleta = leerPaleta(leer, oscuro.matches);
+  const vistaInicio = () => {
+    const v = vistaDeAlto(contenedor.clientHeight);
+    return { center: [VISTA_INICIAL.lon, v.lat], zoom: v.zoom };
+  };
+  let vistaPendiente = !(contenedor.clientHeight > 0); // sin tamaño aún: la vista inicial, cuando lo tenga
+
+  let map;
+  try {
+    map = new maplibregl.Map({
+      container: contenedor,
+      style: componerEstilo(papel, { paises: paisesGeo, tierra, paleta }),
+      ...vistaInicio(),
+      minZoom: zoomMinimo(contenedor.clientWidth, contenedor.clientHeight),
+      maxZoom: ZOOM_MAXIMO,
+      renderWorldCopies: false,
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchPitch: false,
+      maxPitch: 0,
+      clickTolerance: TOLERANCIA_TOQUE,
+      attributionControl: false,
+      pixelRatio: Math.min(globalThis.devicePixelRatio || 1, 2),
+      locale: TEXTOS,
+    });
+  } catch {
+    throw new Error("Este teléfono no puede dibujar el mapa.");
+  }
+  map.touchZoomRotate.disableRotation();
+  map.keyboard.disableRotation();
+  map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: "Natural Earth" }), "bottom-left");
+  // Una tesela que no llega (sin red, o el servicio caído) no rompe nada: debajo está el mundo de respaldo
+  map.on("error", () => {});
+
+  try {
+    await new Promise((resolver, rechazar) => {
+      const reloj = setTimeout(() => rechazar(new Error("tiempo")), Math.max(0, limite - Date.now()));
+      const listo = () => {
+        clearTimeout(reloj);
+        resolver();
+      };
+      if (map.isStyleLoaded()) listo();
+      else map.once("style.load", listo);
+    });
+  } catch {
+    map.remove();
+    throw new Error(SIN_CONEXION);
+  }
+
+  // La capa de las marcas, dentro del contenedor del lienzo: un arrastre que empieza en un pincho mueve el mapa igual
+  const svg = d3.select(map.getCanvasContainer()).append("svg")
+    .attr("class", "mundi-mapa mm-capa")
     .attr("role", "group")
     .attr("aria-label", "Mapamundi con tus pinchos");
-
-  let W = 0, H = 0, anchoMundo = 0, proyeccion, camino, zoom, gMundo, gLimites, gZonas, gPinchos;
-  let t = d3.zoomIdentity;
-  let vistaMundo = d3.zoomIdentity;
+  const gPinchos = svg.append("g").attr("class", "mm-pinchos");
   let pinchos = [];
   let resaltado = null;
   let provisional = null;
-  let capas = null; // las líneas de regiones, cuando hayan llegado
-  let pidiendoLimites = false;
-  let reintentarLimites = 0; // si la descarga falla, no se vuelve a pedir hasta esta hora
+  let abajo = null; // dónde empezó el último toque, para no tomar un arrastre por un toque
+  svg.on("pointerdown", (e) => { abajo = { x: e.clientX, y: e.clientY }; });
 
-  function construir() {
-    const caja = contenedor.getBoundingClientRect();
-    if (!caja.width || !caja.height) return false;
-    W = caja.width;
-    H = caja.height;
-    svg.attr("width", W).attr("height", H).attr("viewBox", `0 0 ${W} ${H}`);
-    svg.selectAll("*").remove();
+  const ponerColor = (id, propiedad, valor) => {
+    try {
+      if (map.getLayer(id)) map.setPaintProperty(id, propiedad, valor);
+    } catch {
+      // un color que MapLibre no entiende deja el que había
+    }
+  };
+  function aplicarPaleta() {
+    const nodo = svg.node();
+    for (const [clave, variable] of Object.entries(VARIABLES)) nodo.style.setProperty(variable, paleta[clave]);
+    ponerColor("mm-visitados", "fill-color", paleta.visitado);
+    ponerColor("mm-zonas-relleno", "fill-color", paleta.visitado);
+    ponerColor("mm-zonas-borde", "line-color", paleta.visitadoBorde);
+  }
+  const alCambiarTema = () => {
+    paleta = leerPaleta(leer, oscuro.matches);
+    aplicarPaleta();
+  };
+  oscuro.addEventListener("change", alCambiarTema);
+  map.once("remove", () => oscuro.removeEventListener("change", alCambiarTema));
 
-    // El mundo cabe de alto; en un teléfono en vertical sobra de ancho y se arrastra a los lados
-    const esfera = { type: "Sphere" };
-    proyeccion = d3.geoNaturalEarth1().fitHeight(H * 0.94, esfera);
-    camino = d3.geoPath(proyeccion);
-    let [[x0, y0], [x1, y1]] = camino.bounds(esfera);
-    const [tx, ty] = proyeccion.translate();
-    proyeccion.translate([tx + W / 2 - (x0 + x1) / 2, ty + H / 2 - (y0 + y1) / 2]);
-    [[x0, y0], [x1, y1]] = camino.bounds(esfera);
-    anchoMundo = x1 - x0;
-    // Con otra proyección, los trazos y las cajas de las líneas ya hechos no valen
-    for (const c of capas ?? []) c.d = c.caja = null;
-
-    gMundo = svg.append("g");
-    gMundo.append("path").attr("class", "mm-oceano").attr("d", camino(esfera));
-    gMundo.append("path").attr("class", "mm-graticula").attr("d", camino(d3.geoGraticule10()));
-    gMundo.selectAll("path.mm-pais").data(paises).join("path").attr("class", "mm-pais").attr("d", camino);
-    gLimites = gMundo.append("g").attr("class", "mm-limites");
-    gZonas = gMundo.append("g").attr("class", "mm-zonas");
-    gPinchos = svg.append("g").attr("class", "mm-pinchos");
-
-    // Vista inicial: el mundo entero si así ocupa al menos el 60 % del alto; si no (teléfono en vertical), de alto
-    const kMin = Math.min(1, W / (x1 - x0));
-    const k0 = kMin >= 0.6 ? kMin : 1;
-    vistaMundo = d3.zoomIdentity.translate((W / 2) * (1 - k0), (H / 2) * (1 - k0)).scale(k0);
-    zoom = d3.zoom()
-      .scaleExtent([kMin, ZOOM_MAXIMO])
-      .translateExtent([[x0 - 20, y0 - 60], [x1 + 20, y1 + 60]])
-      .on("zoom", (e) => {
-        t = e.transform;
-        gMundo.attr("transform", t);
-        pintarLimites();
-        dibujarPinchos();
-      });
-    svg.call(zoom).on("click", tocarMapa);
-    svg.call(zoom.transform, vistaMundo);
-    colorear();
-    return true;
+  function ajustarCapa() {
+    svg.attr("width", contenedor.clientWidth).attr("height", contenedor.clientHeight);
   }
 
-  // Los «quiero ir» no cuentan como visitados: ni pintan su país ni su lugar
-  const esDeseo = (p) => p.estado === "quiero_ir";
+  const enPantalla = (lat, lon) => {
+    const p = map.project([lon, Math.max(-LAT_MAXIMA, Math.min(LAT_MAXIMA, lat))]);
+    return [p.x, p.y];
+  };
 
   function colorear() {
-    if (!gMundo) return;
-    const estuve = pinchos.filter((p) => !esDeseo(p));
-    const visitados = new Set(estuve.map((p) => p.pais).filter(Boolean));
-    gMundo.selectAll("path.mm-pais").classed("mm-visitado", (d) => d.alfa2 !== null && visitados.has(d.alfa2));
-    // La zona de cada lugar: su contorno real si lo trae (GeoJSON) o una mancha redonda alrededor del pincho
-    // Si la forma no se puede dibujar (venga de donde venga), la mancha: el mapa nunca se rompe por un contorno
-    const formas = estuve.map((p) =>
-      formaValida(p.forma) ? rebobinar(p.forma) : d3.geoCircle().center([p.lon, p.lat]).radius(RADIO_ZONA_KM / 111.32)());
-    gZonas.selectAll("path.mm-zona").data(formas).join("path").attr("class", "mm-zona").attr("d", camino);
+    map.getSource("mm-zonas")?.setData(zonasGeoJSON(pinchos));
+    if (map.getLayer("mm-visitados")) map.setFilter("mm-visitados", filtroVisitados(paisesVisitados(pinchos)));
   }
-
-  // d3 quiere los anillos exteriores en sentido horario; GeoJSON (RFC 7946) los trae al revés
-  function rebobinar(geom) {
-    const anillos = geom.type === "Polygon" ? [geom.coordinates] : geom.type === "MultiPolygon" ? geom.coordinates : [];
-    // Si el exterior sale «al revés» (más de medio mundo), se dan la vuelta todos sus anillos, también los huecos
-    const poligonos = anillos.map((pol) =>
-      d3.geoArea({ type: "Polygon", coordinates: [pol[0]] }) > 2 * Math.PI ? pol.map((anillo) => [...anillo].reverse()) : pol);
-    return { type: "MultiPolygon", coordinates: poligonos };
-  }
-
-  // El fichero de líneas se pide la primera vez que hace falta; si no llega, el mapa sigue sin ellas y se reintenta
-  // como pronto al minuto
-  function pedirLimites() {
-    if (capas || pidiendoLimites || Date.now() < reintentarLimites) return;
-    pidiendoLimites = true;
-    fetch(URL_LIMITES)
-      .then((r) => {
-        if (!r.ok) throw new Error(String(r.status));
-        return r.json();
-      })
-      .then((datos) => {
-        capas = capasDeLimites(datos);
-        pintarLimites();
-      })
-      .catch(() => { reintentarLimites = Date.now() + 60_000; })
-      .finally(() => { pidiendoLimites = false; });
-  }
-
-  // Solo las capas que tocan a este zoom y caen en pantalla: así el teléfono no dibuja el mundo entero
-  function pintarLimites() {
-    if (!gLimites) return;
-    if (t.k < ZOOM_PAISES) {
-      gLimites.selectAll("path").remove();
-      return;
-    }
-    pedirLimites();
-    if (!capas) return;
-    const zw = zoomWeb(anchoMundo, t.k);
-    const [vx0, vy0] = t.invert([0, 0]);
-    const [vx1, vy1] = t.invert([W, H]);
-    const visibles = [];
-    for (const c of capas) {
-      const opacidad = opacidadLimite(c.z, zw, t.k);
-      if (opacidad <= 0) continue;
-      c.caja ??= camino.bounds(c.geo);
-      const [[a, b], [cx, cy]] = c.caja;
-      if (cx < vx0 || a > vx1 || cy < vy0 || b > vy1) continue;
-      visibles.push({ c, opacidad });
-    }
-    gLimites.selectAll("path.mm-limite")
-      .data(visibles, (v) => v.c.clave)
-      .join((entra) => entra.append("path").attr("class", "mm-limite").attr("d", (v) => (v.c.d ??= camino(v.c.geo))))
-      .attr("opacity", (v) => v.opacidad.toFixed(2));
-  }
-
-  const enPantalla = (lat, lon) => t.apply(proyeccion([lon, lat]));
 
   function dibujarPinchos() {
-    if (!gPinchos) return;
     const puntos = pinchos.map((p) => {
       const [x, y] = enPantalla(p.lat, p.lon);
       return { x, y, pincho: p };
     });
-    // De lejos, un punto por país; al acercar, los pinchos (los cercanos en pantalla, juntos) y luego las polaroids
-    const porPais = t.k < ZOOM_PAISES;
-    const conFotos = t.k >= ZOOM_FOTOS;
-    const grupos = porPais ? agruparPorPais(puntos) : agrupar(puntos, conFotos ? RADIO_GRUPO_FOTOS : RADIO_GRUPO);
-    for (const g of grupos) {
-      g.porPais = porPais;
-      g.polaroid = !porPais && conFotos && g.pinchos.length === 1 && !!g.pinchos[0].portada && !esDeseo(g.pinchos[0]);
-      g.deseo = g.pinchos.every(esDeseo);
-      g.clave = (porPais ? "c:" : "") + (g.polaroid ? "f:" : g.deseo ? "d:" : "p:")
-        + g.pinchos.map((p) => p.id).sort().join("|");
-    }
-    // El nombre del país va debajo de su punto solo si ahí no hay otro punto que lo tape
-    for (const g of grupos) {
-      g.conNombre = porPais && !!g.pais
-        && !grupos.some((o) => o !== g && Math.abs(o.x - g.x) < 50 && o.y - g.y > -14 && o.y - g.y < 47);
-    }
+    const grupos = marcasPara(puntos, map.getZoom());
 
     gPinchos.selectAll("g.mm-marca")
       .data(grupos, (g) => g.clave)
       .join((entra) => entra.append("g").each(function (g) {
         const sel = d3.select(this).attr("tabindex", 0).attr("role", "button");
-        if (g.porPais && g.pinchos.length > 1) {
-          sel.append("circle").attr("class", "mm-grupo-fondo").attr("cy", -12).attr("r", 15);
-          sel.append("text").attr("class", "mm-grupo-num").attr("y", -12).text(g.pinchos.length);
-          if (g.pais) sel.append("text").attr("class", "mm-pais-nombre").attr("y", 16).text(nombrePais(g.pais));
-          sel.append("circle").attr("class", "mm-toque").attr("cy", -12).attr("r", 20);
-        } else if (g.polaroid) {
+        if (g.polaroid) {
           polaroid(sel, g.pinchos[0]);
         } else if (g.pinchos.length === 1) {
           // Un país con un solo lugar se ve con su pincho, no con un «1»
           cuerpoPincho(sel.append("g").attr("class", "mm-cuerpo"));
-          if (g.porPais && g.pais) sel.append("text").attr("class", "mm-pais-nombre").attr("y", 14).text(nombrePais(g.pais));
           sel.append("circle").attr("class", "mm-toque").attr("cy", -14).attr("r", 18);
         } else {
           sel.append("circle").attr("class", "mm-grupo-fondo").attr("cy", -12).attr("r", 15);
@@ -448,20 +613,11 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
       }))
       .attr("class", (g) => "mm-marca" + (g.deseo ? " mm-deseo" : "")
         + (g.pinchos.length === 1 && g.pinchos[0].id === resaltado ? " mm-nuevo" : ""))
-      .attr("aria-label", (g) => {
-        const nombres = g.pinchos.map((p) => p.nombre).join(", ");
-        if (g.pinchos.length === 1) {
-          return g.pinchos[0].nombre + (g.porPais && g.pais ? `, ${nombrePais(g.pais)}` : "") + (g.deseo ? " (quiero ir)" : "");
-        }
-        if (g.porPais && g.pais) return `${nombrePais(g.pais)}, ${g.pinchos.length} lugares: ${nombres}`;
-        return `${g.pinchos.length} lugares: ${nombres}`;
-      })
+      .attr("aria-label", etiquetaDe)
       .attr("transform", (g) => `translate(${g.x.toFixed(1)},${g.y.toFixed(1)})`)
-      .each(function (g) {
-        d3.select(this).select(".mm-pais-nombre").attr("display", g.conNombre ? null : "none");
-      })
       .on("click", (e, g) => {
-        e.stopPropagation();
+        e.stopPropagation(); // un toque en una marca no es un toque en el mapa
+        if (abajo && Math.hypot(e.clientX - abajo.x, e.clientY - abajo.y) > TOLERANCIA_TOQUE) return;
         tocarGrupo(g);
       })
       .on("keydown", (e, g) => {
@@ -480,62 +636,56 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     }
   }
 
+  // Los márgenes, sin pasar de un cuarto del mapa: en un contenedor pequeño, el encuadre siempre cabe
+  function holgura(margen) {
+    const m = typeof margen === "number" ? { top: margen, right: margen, bottom: margen, left: margen } : margen;
+    const w = contenedor.clientWidth / 4;
+    const h = contenedor.clientHeight / 4;
+    return { top: Math.min(m.top, h), bottom: Math.min(m.bottom, h), left: Math.min(m.left, w), right: Math.min(m.right, w) };
+  }
+
+  function ir({ center, zoom }) {
+    map.flyTo({ center, zoom, duration: DURACION });
+  }
+
+  // Encuadra la caja con ese margen, con el zoom entre `suelo` y `techo`
+  function encajar(caja, { margen, suelo = -Infinity, techo }) {
+    let camara;
+    try {
+      camara = map.cameraForBounds(caja, { padding: holgura(margen), maxZoom: techo });
+    } catch {
+      camara = null;
+    }
+    if (!camara) return;
+    ir({ center: camara.center, zoom: Math.max(suelo, Math.min(techo, camara.zoom)) });
+  }
+
   // Un pincho solo se abre (también el único de un país); un grupo acerca el mapa a sus lugares y el punto de un país
   // con varios, al país entero
   function tocarGrupo(g) {
     if (g.pinchos.length === 1) alTocarPincho(g.pinchos[0]);
-    else if (g.porPais) ir(transformacionPais(g));
-    else ir(transformacionPara(g.pinchos, 70));
+    else if (g.porPais) irAlPais(g);
+    else encajar(cajaDe(g.pinchos), { margen: 70, techo: TOPE_ENCUADRE });
   }
 
   // El país entero (su trozo más grande: Francia sin sus islas lejanas) y sus lugares, ya por encima de ZOOM_PAISES
-  function transformacionPais(g) {
-    const puntos = g.pinchos.map((p) => proyeccion([p.lon, p.lat]));
+  function irAlPais(g) {
+    let caja = cajaDe(g.pinchos);
     const pais = g.pais ? paises.find((f) => f.alfa2 === g.pais) : null;
     if (pais) {
-      const [[a, b], [c, d]] = camino.bounds(trozoMayor(pais));
-      puntos.push([a, b], [c, d]);
+      // Si el trozo cruza la línea de cambio de fecha (oeste > este), solo sus lugares
+      const [[po, ps], [pe, pn]] = d3.geoBounds(trozoMayor(pais));
+      const [[o, s], [e, n]] = caja;
+      if (po <= pe) caja = [[Math.min(o, po), Math.min(s, ps)], [Math.max(e, pe), Math.max(n, pn)]];
     }
-    return encuadre(puntos, 40, ZOOM_PAISES * 1.3, pais ? ZOOM_MAXIMO : ZOOM_PUNTO);
+    encajar(caja, pais ? { margen: 40, suelo: ZOOM_PAISES + 0.4, techo: TOPE_ENCUADRE } : { margen: 40, techo: ZOOM_PUNTO });
   }
 
   function trozoMayor(pais) {
-    const g = pais.geometry;
-    if (g?.type !== "MultiPolygon") return pais;
-    const trozos = g.coordinates.map((coordinates) => ({ type: "Polygon", coordinates }));
+    const geo = pais.geometry;
+    if (geo?.type !== "MultiPolygon") return pais;
+    const trozos = geo.coordinates.map((coordinates) => ({ type: "Polygon", coordinates }));
     return trozos.reduce((mayor, t) => (d3.geoArea(t) > d3.geoArea(mayor) ? t : mayor));
-  }
-
-  function transformacionPara(lista, margen, kPunto = ZOOM_PUNTO) {
-    const [, kMax] = zoom.scaleExtent();
-    return encuadre(lista.map((p) => proyeccion([p.lon, p.lat])), margen, 0, lista.length === 1 ? kPunto : kMax);
-  }
-
-  // La vista que encaja esos puntos (ya proyectados) con `margen` px, con el zoom entre `kSuelo` y `kTecho`
-  function encuadre(puntos, margen, kSuelo, kTecho) {
-    const [x0, x1] = d3.extent(puntos, (d) => d[0]);
-    const [y0, y1] = d3.extent(puntos, (d) => d[1]);
-    const [kMin] = zoom.scaleExtent();
-    const ajuste = Math.min((W - margen * 2) / Math.max(x1 - x0, 1), (H - margen * 2) / Math.max(y1 - y0, 1));
-    const k = Math.max(kMin, kSuelo, Math.min(kTecho, ajuste));
-    return d3.zoomIdentity.translate(W / 2, H / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
-  }
-
-  function ir(transformacion, animado = true) {
-    if (!zoom) return;
-    (animado && !reducirMovimiento ? svg.transition().duration(850) : svg).call(zoom.transform, transformacion);
-  }
-
-  function tocarMapa(e) {
-    const [x, y] = d3.pointer(e, svg.node());
-    const [mx, my] = t.invert([x, y]);
-    const lonLat = proyeccion.invert([mx, my]);
-    if (!lonLat || !lonLat.every(Number.isFinite)) return;
-    const [lon, lat] = lonLat;
-    // Fuera de la esfera, la inversa no vuelve al mismo sitio: ese toque no es un punto del mundo
-    const [px, py] = proyeccion([lon, lat]);
-    if (Math.abs(lon) > 180 || Math.abs(lat) > 90 || Math.hypot(px - mx, py - my) > 0.5) return;
-    alTocarPunto({ lat: redondear(lat), lon: redondear(lon), pais: paisEn(lat, lon) });
   }
 
   function paisEn(lat, lon) {
@@ -543,36 +693,61 @@ export async function crearMapa(contenedor, { alTocarPincho = () => {}, alTocarP
     return p ? p.alfa2 : null;
   }
 
-  let pendiente = 0;
-  const observador = new ResizeObserver(() => {
-    cancelAnimationFrame(pendiente);
-    pendiente = requestAnimationFrame(() => {
-      const caja = contenedor.getBoundingClientRect();
-      if (caja.width === W && caja.height === H) return;
-      if (construir()) {
-        dibujarPinchos();
-        if (pinchos.length) ir(transformacionPara(pinchos, 48), false);
-      }
-    });
+  // Un toque en el mapa, fuera de las marcas. Espera un poco por si es el primero de un doble toque (que acerca y no
+  // avisa); un toque justo después de hacer zoom tampoco avisa
+  let toque = 0;
+  let ultimoZoom = -Infinity;
+  map.on("zoomstart", () => {
+    ultimoZoom = performance.now();
+    clearTimeout(toque);
   });
-  observador.observe(contenedor);
-  construir();
+  map.on("dblclick", () => clearTimeout(toque));
+  map.on("click", (e) => {
+    if (e.originalEvent?.target?.closest?.(".mm-marca")) return;
+    const cuando = performance.now();
+    if (map.isZooming() || cuando - ultimoZoom < 400) return;
+    const { lng, lat } = e.lngLat;
+    clearTimeout(toque);
+    toque = setTimeout(() => {
+      if (ultimoZoom < cuando) avisarPunto(lat, lng);
+    }, ESPERA_TOQUE);
+  });
+  function avisarPunto(lat, lng) {
+    // Fuera del mundo (más allá de ±180°, donde no se repite, o de los polos de Mercator) no avisa
+    if (!(Math.abs(lng) <= 180) || !(Math.abs(lat) <= LAT_MAXIMA)) return;
+    const lon = normalizarLon(lng);
+    alTocarPunto({ lat: redondear(lat), lon: redondear(lon), pais: paisEn(lat, lon) });
+  }
+
+  map.on("move", dibujarPinchos);
+  map.on("resize", () => {
+    map.setMinZoom(zoomMinimo(contenedor.clientWidth, contenedor.clientHeight));
+    if (vistaPendiente && contenedor.clientHeight > 0) {
+      vistaPendiente = false;
+      map.jumpTo(vistaInicio());
+    }
+    ajustarCapa();
+    dibujarPinchos();
+  });
+  ajustarCapa();
+  aplicarPaleta();
 
   return {
     pintar(lista, { resaltar = null } = {}) {
       pinchos = Array.isArray(lista) ? lista.filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lon)) : [];
       resaltado = resaltar;
-      gPinchos?.selectAll("g.mm-marca").remove(); // se vuelven a crear con el estado nuevo
+      gPinchos.selectAll("g.mm-marca").remove(); // se vuelven a crear con el estado nuevo
       colorear();
       dibujarPinchos();
-      resaltado = null; // la animación, solo al entrar: no se repite al hacer zoom
+      resaltado = null; // la animación, solo al entrar: no se repite al mover el mapa
     },
     encuadrar() {
-      if (!zoom) return;
-      ir(pinchos.length ? transformacionPara(pinchos, 48) : vistaMundo);
+      if (!pinchos.length) ir(vistaInicio());
+      else if (pinchos.length === 1) ir({ center: [pinchos[0].lon, pinchos[0].lat], zoom: ZOOM_PUNTO });
+      else encajar(cajaDe(pinchos), { margen: HUECOS, techo: TOPE_ENCUADRE });
     },
-    irA(lat, lon, k = ZOOM_PUNTO) {
-      if (zoom) ir(transformacionPara([{ lat, lon }], 70, k));
+    irA(lat, lon, zoom = ZOOM_PUNTO) {
+      ir({ center: [lon, lat], zoom });
     },
     marcarPunto(lat, lon) {
       provisional = lat === null || lat === undefined ? null : { lat, lon };

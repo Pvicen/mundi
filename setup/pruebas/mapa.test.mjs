@@ -1,11 +1,13 @@
-// Pruebas de la Caja Mapa (mapa.js) que se pueden hacer en Node: la tabla de códigos de país y los grupos de
-// pinchos. El dibujo, el zoom y los toques solo existen en el navegador: se prueban con setup/pruebas/mapa.html.
-// Se ejecutan con `node --test` desde la raíz del repo.
+// Pruebas de la Caja Mapa (mapa.js) que se pueden hacer en Node: la tabla de códigos de país, los grupos de pinchos,
+// qué marca sale a cada zoom, las zonas, los colores y el estilo completo. El dibujo, el zoom y los toques solo existen
+// en el navegador: se prueban con setup/pruebas/mapa.html. Se ejecutan con `node --test` desde la raíz del repo.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ISO, SIN_CODIGO, alfa2, agrupar, agruparPorPais, capasDeLimites, crearMapa, decodificarLinea, formaValida,
-  nombrePais, opacidadLimite, RADIO_GRUPO, URL_LIMITES, ZOOM_PAISES, zoomWeb,
+  CAPAS_PROPIAS, HUECOS, ISO, LAT_MAXIMA, PALETA, RADIO_GRUPO, RADIO_GRUPO_FOTOS, SIN_CODIGO, TOPE_ENCUADRE,
+  URL_PAPEL, ZOOM_FOTOS, ZOOM_MAXIMO, ZOOM_PAISES, ZOOM_PUNTO, agrupar, agruparPorPais, alfa2, cajaDe, componerEstilo,
+  crearMapa, esDeseo, etiquetaDe, filtroVisitados, formaValida, giro, leerPaleta, mancha, marcasPara, nombrePais,
+  normalizarLon, paisesVisitados, partirEnLaFecha, redondear, vistaDeAlto, zonasGeoJSON, zoomMinimo,
 } from "../../mapa.js";
 
 test("la tabla ISO: numérico de 3 cifras → alfa-2 en mayúsculas, sin repetidos", () => {
@@ -113,51 +115,218 @@ test("nombrePais: en español, y el código si no se conoce", () => {
   assert.equal(nombrePais("ZZZZ"), "ZZZZ");
 });
 
-test("zoomWeb: 256 px de mundo es el nivel 0; cada vez que se dobla, un nivel más", () => {
-  assert.equal(zoomWeb(256, 1), 0);
-  assert.equal(zoomWeb(1024, 2), 3);
-  assert.equal(zoomWeb(512, 0.5), 0);
+test("los zooms del Contrato 387, en unidades de MapLibre y en orden", () => {
+  assert.deepEqual(
+    [ZOOM_PAISES, ZOOM_FOTOS, ZOOM_PUNTO, TOPE_ENCUADRE, ZOOM_MAXIMO],
+    [2.5, 3.3, 10, 14, 18],
+  );
+  assert.equal(RADIO_GRUPO_FOTOS, 62);
+  assert.deepEqual(HUECOS, { top: 64, right: 80, bottom: 96, left: 32 });
 });
 
-test("decodificarLinea: milésimas de grado en diferencias → [lon, lat]", () => {
-  assert.deepEqual(decodificarLinea([-70650, -33450, 150, -50, -25, 5]), [[-70.65, -33.45], [-70.5, -33.5], [-70.525, -33.495]]);
-  assert.deepEqual(decodificarLinea([]), []);
+test("giro: siempre el mismo para un id, entre −6,6° y 6,6°", () => {
+  const vistos = new Set();
+  for (let i = 0; i < 500; i++) {
+    const g = giro(`id-${i}`);
+    assert.equal(g, giro(`id-${i}`));
+    assert.ok(g >= -6.6 - 1e-9 && g <= 6.6 + 1e-9, String(g));
+    vistos.add(g.toFixed(1));
+  }
+  assert.ok(vistos.size >= 10, "los giros se reparten");
+  assert.equal(giro(42), giro("42"));
 });
 
-test("capasDeLimites: una capa por país y nivel; lo que no cuadra se ignora", () => {
-  const capas = capasDeLimites({
-    tipo: "limites.v1",
-    paises: [
-      { pais: "ESP", niveles: [{ z: 6.7, lineas: [[-3000, 40000, 100, 100], [1, 2]] }, { z: 8, lineas: [[0, 0, 1, 1]] }] },
-      { pais: "MAL", niveles: [{ z: 6, lineas: [[999000, 0, 1, 1]] }] }, // fuera de rango
-      { pais: "SIN", niveles: [{ z: "6", lineas: [[0, 0, 1, 1]] }] }, // z que no es número
-      { niveles: [] }, // sin país
-    ],
-  });
-  assert.deepEqual(capas.map((c) => c.clave), ["ESP:6.7", "ESP:8"]);
-  assert.deepEqual(capas[0].geo, { type: "MultiLineString", coordinates: [[[-3, 40], [-2.9, 40.1]]] });
-  assert.deepEqual(capasDeLimites({ tipo: "otro", paises: [] }), []);
-  assert.deepEqual(capasDeLimites(null), []);
+test("normalizarLon: lo de fuera de −180..180 vuelve dentro, y lo de dentro no cambia", () => {
+  assert.equal(normalizarLon(-3.7), -3.7);
+  assert.equal(normalizarLon(180), 180);
+  assert.equal(normalizarLon(-180), -180);
+  assert.equal(normalizarLon(200), -160);
+  assert.equal(normalizarLon(-200), 160);
+  assert.equal(normalizarLon(370.5), 10.5);
+  assert.equal(redondear(-3.703812), -3.70381);
 });
 
-test("opacidadLimite: de lejos nada; al acercar, cada capa entra poco a poco hasta verse entera", () => {
-  assert.equal(opacidadLimite(2, 10, ZOOM_PAISES - 0.01), 0); // de lejos, solo los países
-  assert.equal(opacidadLimite(2, 10, ZOOM_PAISES), 0); // justo en el umbral, aún nada
-  assert.equal(opacidadLimite(2, 10, ZOOM_PAISES * 2), 1);
-  assert.equal(opacidadLimite(8, 5, 50), 0); // nivel 8: con zoom web 5 todavía no le toca (sale en el 6)
-  assert.ok(opacidadLimite(8, 6.3, 50) > 0 && opacidadLimite(8, 6.3, 50) < 1); // entrando
-  assert.equal(opacidadLimite(8, 7, 50), 1);
+test("mancha: un anillo cerrado de 9 km alrededor del punto, que pasa formaValida", () => {
+  const forma = mancha(40.4168, -3.7038);
+  const [anillo] = forma.coordinates;
+  assert.equal(forma.type, "Polygon");
+  assert.equal(anillo.length, 65);
+  assert.deepEqual(anillo[0], anillo.at(-1));
+  assert.equal(formaValida(forma), true);
+  const rad = Math.PI / 180;
+  for (const [lon, lat] of anillo) {
+    const a = Math.sin(((lat - 40.4168) * rad) / 2) ** 2
+      + Math.cos(40.4168 * rad) * Math.cos(lat * rad) * Math.sin(((lon + 3.7038) * rad) / 2) ** 2;
+    const km = 2 * 6371.0088 * Math.asin(Math.sqrt(a));
+    assert.ok(Math.abs(km - 9) < 0.01, String(km));
+  }
+  // Junto a la línea de cambio de fecha, las longitudes siguen dentro de −180..180
+  assert.equal(formaValida(mancha(-17.7, 179.99)), true);
 });
 
-test("el fichero de límites de la app (datos/limites.json) es limites.v1 y trae los países de los viajes", async () => {
+test("zonasGeoJSON: el contorno si vale, si no la mancha; los «quiero ir», sin zona", () => {
+  const forma = { type: "Polygon", coordinates: [[[4.77, 45.71], [4.9, 45.71], [4.9, 45.81], [4.77, 45.71]]], extra: 1 };
+  const zonas = zonasGeoJSON([
+    { id: 1, lat: 45.76, lon: 4.83, forma },
+    { id: 2, lat: 40.4, lon: -3.7, forma: { type: "Polygon" } },
+    { id: 3, lat: 35, lon: 135.7, estado: "quiero_ir" },
+    { id: 4, lat: 38, lon: -1.1, estado: "visitado" },
+  ]);
+  assert.equal(zonas.type, "FeatureCollection");
+  assert.deepEqual(zonas.features.map((f) => f.properties.id), ["1", "2", "4"]);
+  assert.deepEqual(zonas.features[0].geometry, { type: "Polygon", coordinates: forma.coordinates });
+  assert.equal(zonas.features[1].geometry.coordinates[0].length, 65);
+  assert.ok(esDeseo({ estado: "quiero_ir" }) && !esDeseo({ estado: "visitado" }) && !esDeseo(undefined));
+});
+
+const saltos = (geo) => (geo.type === "Polygon" ? [geo.coordinates] : geo.coordinates)
+  .flat().filter((anillo) => anillo.some((p, i) => i > 0 && Math.abs(p[0] - anillo[i - 1][0]) > 180)).length;
+
+test("partirEnLaFecha: lo que cruza la línea de cambio de fecha se parte en dos, sin rayas de lado a lado", () => {
+  const cruza = { type: "Polygon", coordinates: [[[170, 60], [-170, 60], [-170, 70], [170, 70], [170, 60]]] };
+  const partido = partirEnLaFecha(cruza);
+  assert.equal(partido.type, "MultiPolygon");
+  assert.equal(partido.coordinates.length, 2);
+  assert.equal(saltos(partido), 0);
+  const lados = partido.coordinates.map((pol) => pol[0].map((p) => p[0]));
+  for (const lons of lados) assert.ok(lons.every((x) => Math.abs(x) <= 180));
+  assert.ok(lados.some((lons) => Math.min(...lons) === 170 && Math.max(...lons) === 180));
+  assert.ok(lados.some((lons) => Math.min(...lons) === -180 && Math.max(...lons) === -170));
+  for (const pol of partido.coordinates) assert.deepEqual(pol[0][0], pol[0].at(-1), "anillos cerrados");
+  // Lo que no cruza no se toca
+  const espana = { type: "Polygon", coordinates: [[[-9, 36], [3, 36], [3, 43], [-9, 43], [-9, 36]]] };
+  assert.equal(partirEnLaFecha(espana), espana);
+  // Un anillo que rodea el polo (como la Antártida) se queda como está
+  const polo = [[-180, -80], [0, -75], [180, -80], [180, -90], [-180, -90], [-180, -80]];
+  assert.deepEqual(partirEnLaFecha({ type: "Polygon", coordinates: [polo] }), { type: "MultiPolygon", coordinates: [[polo]] });
+  // Una mancha junto a la línea de cambio de fecha (Fiyi) tampoco deja rayas
+  assert.equal(saltos(zonasGeoJSON([{ id: 1, lat: -17.7, lon: 179.99 }]).features[0].geometry), 0);
+  assert.equal(partirEnLaFecha(null), null);
+});
+
+test("paisesVisitados: sin repetir, sin «quiero ir» y solo códigos de dos letras", () => {
+  const visitados = paisesVisitados([
+    { pais: "FR" }, { pais: "ES" }, { pais: "ES" }, { pais: "JP", estado: "quiero_ir" }, { pais: null }, { pais: "esp" },
+  ]);
+  assert.deepEqual(visitados, ["ES", "FR"]);
+  assert.deepEqual(filtroVisitados(visitados), ["in", ["get", "iso"], ["literal", ["ES", "FR"]]]);
+});
+
+test("cajaDe: oeste-sur y este-norte de los pinchos", () => {
+  assert.deepEqual(cajaDe([{ lat: 40, lon: -3 }, { lat: -33, lon: -70 }, { lat: 48, lon: 2 }]), [[-70, -33], [2, 48]]);
+});
+
+test("marcasPara: de lejos un punto por país; al acercar, pinchos y grupos; desde ZOOM_FOTOS, polaroids", () => {
+  const p = (id, x, extra = {}) => ({ x, y: 100, pincho: { id, nombre: id, pais: "ES", ...extra } });
+  const puntos = [p("a", 100, { portada: "a.jpg" }), p("b", 140), p("c", 400, { portada: "c.jpg", estado: "quiero_ir" })];
+  const lejos = marcasPara(puntos, ZOOM_PAISES - 0.01);
+  assert.equal(lejos.length, 1);
+  assert.ok(lejos[0].porPais && !lejos[0].polaroid);
+  assert.match(lejos[0].clave, /^c:p:/);
+  const cerca = marcasPara(puntos, ZOOM_PAISES);
+  assert.equal(cerca.length, 3); // a 40 px: más que RADIO_GRUPO
+  assert.ok(cerca.every((g) => !g.porPais && !g.polaroid));
+  const fotos = marcasPara(puntos, ZOOM_FOTOS);
+  // a 40 px ya se juntan (RADIO_GRUPO_FOTOS); el «quiero ir» no lleva polaroid aunque tenga portada
+  assert.equal(fotos.length, 2);
+  const deseo = fotos.find((g) => g.pinchos[0].id === "c");
+  assert.ok(deseo.deseo && !deseo.polaroid);
+  assert.match(deseo.clave, /^d:/);
+  const solo = marcasPara([p("a", 100, { portada: "a.jpg" })], ZOOM_FOTOS);
+  assert.ok(solo[0].polaroid);
+  assert.equal(solo[0].clave, "f:a");
+  assert.equal(marcasPara([p("a", 100, { portada: "a.jpg" })], ZOOM_FOTOS - 0.01)[0].polaroid, false);
+});
+
+test("etiquetaDe: lo que se lee de cada marca", () => {
+  const uno = { nombre: "Madrid" };
+  assert.equal(etiquetaDe({ pinchos: [uno] }), "Madrid");
+  assert.equal(etiquetaDe({ pinchos: [uno], porPais: true, pais: "ES" }), "Madrid, España");
+  assert.equal(etiquetaDe({ pinchos: [uno], deseo: true }), "Madrid (quiero ir)");
+  const dos = [uno, { nombre: "Toledo" }];
+  assert.equal(etiquetaDe({ pinchos: dos, porPais: true, pais: "ES" }), "España, 2 lugares: Madrid, Toledo");
+  assert.equal(etiquetaDe({ pinchos: dos }), "2 lugares: Madrid, Toledo");
+});
+
+test("leerPaleta: de día, los colores de la página si MapLibre los entiende; de noche, los claros fijos", () => {
+  const pagina = { "--pin": " #E0533F", "--visitado": "color-mix(in srgb, red 30%, blue)", "--deseo": "rgb(1, 2, 3)" };
+  const leer = (v) => pagina[v] ?? "";
+  const dia = leerPaleta(leer, false);
+  assert.equal(dia.pin, "#E0533F");
+  assert.equal(dia.deseo, "rgb(1, 2, 3)");
+  assert.equal(dia.visitado, PALETA.visitado); // color-mix no lo entiende MapLibre
+  assert.equal(dia.sup, PALETA.sup); // sin la variable
+  assert.deepEqual(leerPaleta(leer, true), PALETA);
+});
+
+test("vistaDeAlto y zoomMinimo: el mundo habitado de alto; se aleja hasta que el mundo llena el mapa", () => {
+  const v = vistaDeAlto(650);
+  assert.ok(Math.abs(v.zoom - 1.09) < 0.02, String(v.zoom));
+  assert.ok(v.lat > 25 && v.lat < 35, String(v.lat));
+  assert.ok(vistaDeAlto(1300).zoom - v.zoom > 0.999 && vistaDeAlto(1300).zoom - v.zoom < 1.001);
+  assert.equal(vistaDeAlto(0).zoom, 1);
+  // Un teléfono en vertical: manda el alto; un escritorio: el ancho
+  assert.equal(zoomMinimo(375, 1024), 1);
+  assert.equal(zoomMinimo(2048, 700), 2);
+  assert.ok(zoomMinimo(375, 650) < v.zoom, "la vista inicial está por encima del mínimo");
+  assert.equal(zoomMinimo(0, 0), -2);
+  assert.ok(LAT_MAXIMA > 85 && LAT_MAXIMA < 85.1);
+});
+
+// Un «Papel» de juguete: fondo, agua, una calle y dos capas de nombres
+const papelDeJuguete = () => ({
+  version: 8,
+  sources: { openmaptiles: { type: "vector", url: "https://tiles.openfreemap.org/planet" } },
+  layers: [
+    { id: "background", type: "background", paint: { "background-color": "#F3EAD7" } },
+    { id: "park", type: "fill", source: "openmaptiles", "source-layer": "park" },
+    { id: "water", type: "fill", source: "openmaptiles", "source-layer": "water" },
+    { id: "road_minor", type: "line", source: "openmaptiles", "source-layer": "transportation" },
+    { id: "label_city", type: "symbol", source: "openmaptiles", "source-layer": "place" },
+    { id: "label_country_1", type: "symbol", source: "openmaptiles", "source-layer": "place" },
+  ],
+});
+
+test("componerEstilo: el mundo de respaldo debajo, los visitados bajo el agua y las zonas bajo los nombres", () => {
+  const papel = papelDeJuguete();
+  const copia = structuredClone(papel);
+  const tierra = { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [] } };
+  const estilo = componerEstilo(papel, { tierra, paleta: { ...PALETA, visitado: "#123456" } });
+  assert.deepEqual(papel, copia, "no toca el original");
+  assert.deepEqual(estilo.layers.map((c) => c.id), [
+    "background", "mm-tierra", "mm-costas", "park", "mm-visitados", "water", "road_minor", "mm-zonas-relleno",
+    "mm-zonas-borde", "label_city", "label_country_1",
+  ]);
+  assert.equal(estilo.sources["mm-tierra"].data, tierra);
+  assert.deepEqual(estilo.sources["mm-zonas"].data, { type: "FeatureCollection", features: [] });
+  assert.ok(estilo.sources.openmaptiles);
+  const fondo = estilo.layers[0].paint["background-color"];
+  assert.equal(fondo[0], "interpolate"); // mar de lejos, papel de cerca
+  const visitados = estilo.layers.find((c) => c.id === "mm-visitados");
+  assert.equal(visitados.paint["fill-color"], "#123456");
+  assert.deepEqual(visitados.filter, filtroVisitados([]));
+  // Dos veces seguidas no duplica nada
+  const otra = componerEstilo(estilo, { tierra });
+  assert.equal(otra.layers.length, estilo.layers.length);
+  assert.deepEqual(new Set(otra.layers.map((c) => c.id)).size, otra.layers.length);
+  for (const id of CAPAS_PROPIAS) assert.ok(otra.layers.some((c) => c.id === id), id);
+});
+
+test("componerEstilo: sin agua ni nombres ni fondo, todo encuentra sitio", () => {
+  const estilo = componerEstilo({ version: 8, sources: {}, layers: [] });
+  assert.deepEqual(estilo.layers.map((c) => c.id), [
+    "background", "mm-tierra", "mm-costas", "mm-visitados", "mm-zonas-relleno", "mm-zonas-borde",
+  ]);
+});
+
+test("componerEstilo con el «Papel» de verdad (datos/papel.json)", async () => {
   const { readFile } = await import("node:fs/promises");
-  const datos = JSON.parse(await readFile(new URL(URL_LIMITES)));
-  const capas = capasDeLimites(datos);
-  assert.ok(datos.paises.length > 150);
-  // Lo que se ignora al leerlo sería un fichero mal hecho: todas las capas del fichero tienen que servir
-  assert.equal(capas.length, datos.paises.reduce((s, p) => s + p.niveles.length, 0));
-  const niveles = (pais) => capas.filter((c) => c.pais === pais).map((c) => c.z);
-  assert.deepEqual(niveles("ESP"), [6.7, 8]); // comunidades y, más cerca, provincias
-  assert.deepEqual(niveles("CHL"), [6]); // regiones
-  assert.ok(niveles("JPN").length >= 1 && niveles("PRT").length >= 1);
+  const papel = JSON.parse(await readFile(new URL(URL_PAPEL), "utf8"));
+  const estilo = componerEstilo(papel, {});
+  const ids = estilo.layers.map((c) => c.id);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(ids.indexOf("mm-visitados") === ids.indexOf("water") - 1);
+  const primerNombre = estilo.layers.findIndex((c) => c.type === "symbol");
+  assert.equal(ids[primerNombre - 1], "mm-zonas-borde");
+  assert.equal(ids[primerNombre - 2], "mm-zonas-relleno");
 });
