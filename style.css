@@ -98,7 +98,10 @@ svg { flex: none; }
 .boton-icono svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .zona-mapa { position: relative; flex: 1; min-height: 0; background: var(--mar); }
-.mapa { position: absolute; inset: 0; }
+/* Le gana al position: relative de MapLibre, y sus controles (z-index 2) quedan dentro del mapa, debajo de lo de la app */
+.zona-mapa > .mapa { position: absolute; inset: 0; isolation: isolate; }
+/* La atribución del mapa (obligatoria): por encima de la barra del sistema y sin meterse bajo los botones */
+.zona-mapa > .mapa .maplibregl-ctrl-bottom-left { bottom: env(safe-area-inset-bottom, 0px); max-width: calc(100% - 96px); }
 .sin-mapa, .vacio { position: absolute; left: 16px; right: 16px; text-align: center; color: var(--tinta-2); }
 .sin-mapa { top: 40%; display: grid; justify-items: center; gap: 10px; }
 .sin-mapa p { margin: 0; }
@@ -126,7 +129,7 @@ svg { flex: none; }
 .aviso-elegir button { border: 0; border-radius: 999px; padding: 6px 12px; background: var(--pared); color: var(--tinta); font-weight: 600; font-size: 13px; }
 /* Un mapa compartido: abajo, de quién es y cómo volver al tuyo */
 .ajeno {
-  position: absolute; left: 12px; right: 84px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 2;
+  position: absolute; left: 12px; right: 84px; bottom: calc(48px + env(safe-area-inset-bottom, 0px)); z-index: 2;
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 10px 10px 10px 14px; border-radius: 6px; background: var(--deseo); color: var(--sup);
   font-weight: 600; font-size: 14px; box-shadow: var(--sombra-boton);

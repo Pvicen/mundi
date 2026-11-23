@@ -3,13 +3,14 @@
 // Lo que va a Supabase (datos y fotos) no se toca nunca: va siempre directo a la red.
 //
 // Convenio: sube el número de CACHE («mundi-v2», …) si cambias un fichero de ASSETS o una URL de CDN.
-const CACHE = "mundi-v9";
+const CACHE = "mundi-v10";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
   "./mapa.js",
+  "./datos/papel.json",
   "./fotos.js",
   "./copia.js",
   "./puente.js",
@@ -54,8 +55,14 @@ self.addEventListener("activate", (e) => {
   );
 });
 
+// Del mapa (OpenFreeMap) se guardan el índice de teselas, los iconos y las letras. Las teselas no: se quedan en la
+// caché del navegador, porque guardarlas aquí sin tope llenaría el origen que Mundi comparte con la App de avisos
+const MAPA = "https://tiles.openfreemap.org";
+const esDelMapa = (url) => url.origin === MAPA
+  && (url.pathname === "/planet" || url.pathname.startsWith("/sprites/") || url.pathname.startsWith("/fonts/"));
+
 function esCascara(url) {
-  return url.origin === self.location.origin || DE_FUERA.some((p) => url.href.startsWith(p));
+  return url.origin === self.location.origin || DE_FUERA.some((p) => url.href.startsWith(p)) || esDelMapa(url);
 }
 
 self.addEventListener("fetch", (e) => {
