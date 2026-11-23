@@ -96,43 +96,75 @@ Ficheros: `manifest.webmanifest`, `sw.js` e `icons/` (`icono-192.png`, `icono-51
 
 - `index.html` enlaza el manifiesto (`<link rel="manifest" href="manifest.webmanifest">`) y el icono de iPhone
   (`<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">`), y registra `./sw.js`.
-- `sw.js` guarda la cáscara propia (`ASSETS`: `./`, `index.html`, `style.css`, `app.js`, `mapa.js`, `fotos.js`, `copia.js`, `puente.js`,
-  `experiencias.js`, `config.js`, el manifiesto y los iconos) y lo que se pida a los CDN (`cdn.jsdelivr.net`, `cdnjs.cloudflare.com`) y a
-  Google Fonts. Red primero y caché de respaldo, para que funcione sin conexión.
+- `sw.js` guarda la cáscara propia (`ASSETS`: `./`, `index.html`, `style.css`, `app.js`, `mapa.js`, `datos/papel.json`,
+  `fotos.js`, `copia.js`, `puente.js`, `experiencias.js`, `config.js`, el manifiesto y los iconos) y lo que se pida a los
+  CDN (`cdn.jsdelivr.net`, `cdnjs.cloudflare.com`) y a Google Fonts. Red primero y caché de respaldo, para que funcione
+  sin conexión.
+- Del mapa (`tiles.openfreemap.org`, desde `mundi-v10`) guarda el índice de teselas (`/planet`), los iconos
+  (`/sprites/`) y las letras (`/fonts/`); las teselas no: se quedan en la caché del navegador, porque guardarlas aquí
+  sin tope llenaría el origen que Mundi comparte con la App de avisos.
 - **Nunca toca lo que va a Supabase** (datos ni fotos): siempre va directo a la red.
 - Convenio: si cambia un fichero de `ASSETS` o una URL de CDN, se sube el número de `CACHE` (`mundi-v1`, `mundi-v2`…).
 
-## Mapa — el mapamundi
+## Mapa — el mapamundi (MapLibre, fondo «Papel»)
 
-Fichero: `mapa.js` (módulo ES). Prueba: `setup/pruebas/mapa.test.mjs` y, en el navegador, `setup/pruebas/mapa.html`.
-Necesita los globales `d3` (7.9.0) y `topojson` (3.0.2), cargados antes desde cdnjs. La geometría (Natural Earth a
-1:50 millones, `world-atlas@2.0.2/countries-50m.json`) la descarga él desde jsdelivr.
+Desde el 23/11/2026 (Contrato 387: el mapa «como Google Maps», con el estilo «Papel» que eligieron Vicente y su suegro).
+Ficheros: `mapa.js` (módulo ES) y el fondo `datos/papel.json`, que genera `setup/papel.mjs` desde el estilo `liberty`
+de OpenFreeMap. Pruebas: `setup/pruebas/mapa.test.mjs` y `setup/pruebas/papel.test.mjs` (Node) y, en el navegador,
+`setup/pruebas/mapa.html`. Necesita los globales `maplibregl` (MapLibre GL JS 5.24.0, JS y CSS), `d3` (7.9.0) y
+`topojson` (3.0.2), cargados antes por la página; al importarse no toca la página ni la red. Los países (Natural Earth a
+1:50 millones, `world-atlas@2.0.2/countries-50m.json`) los descarga él desde jsdelivr; las teselas de OpenStreetMap,
+los iconos y las letras vienen de `tiles.openfreemap.org`.
 
-- `crearMapa(contenedor, { alTocarPincho, alTocarPunto })` → `Promise<mapa>`. El mapa llena el `contenedor` (un
-  elemento con tamaño), se adapta si cambia de tamaño y empieza mostrando el mundo entero (en un teléfono en vertical,
-  de alto, y se arrastra a los lados). Si no puede descargar la geometría, la promesa se rechaza con un `Error` cuyo
-  mensaje se puede enseñar tal cual.
-- `mapa.pintar(pinchos, { resaltar } = {})`: pinta los pinchos, colorea en suave los países visitados y, en fuerte,
-  cada lugar: su `forma` (GeoJSON) o, si no tiene, una mancha de 9 km alrededor. Cada pincho es un objeto con, al
-  menos, `{ id, nombre, lat, lon, pais }` (las filas de `mundi_pinchos` valen tal cual), y puede llevar `forma` y
-  `portada` (la URL de una imagen). Si la `forma` no pasa `formaValida(forma)` (exportada), se pinta la mancha: un
-  contorno roto nunca impide dibujar el mapa. Desde el zoom 4, un pincho con portada se dibuja como una polaroid clavada, con su
-  nombre escrito abajo (los grupos se juntan entonces a 62 px). Un pincho con `estado: "quiero_ir"` se dibuja en el
-  color `--deseo`, sin polaroid, y no pinta ni su país ni su lugar. Sustituye lo
-  pintado antes. Los pinchos que en pantalla quedan cerca se agrupan en un círculo con el número; al acercar, se
-  separan. `resaltar` es el `id` de un pincho que entra con animación (el recién guardado).
-- `mapa.encuadrar()`: ajusta la vista para que se vean todos los pinchos (la vista inicial si no hay).
-- `mapa.irA(lat, lon, zoom = 6)`: se acerca a ese punto.
+- `crearMapa(contenedor, { alTocarPincho, alTocarPunto })` → `Promise<mapa>`. El mapa llena el `contenedor` y se
+  adapta si cambia de tamaño, sin perder la vista. Se resuelve cuando han cargado el estilo y los países (no espera a
+  las teselas), en 15 s como mucho. Si no, se rechaza con un `Error` cuyo mensaje se puede enseñar tal cual («Falta
+  MapLibre…», «Faltan d3 y topojson…», «Este teléfono no puede dibujar el mapa.» sin WebGL, o «No se pudo cargar el
+  mapa. Comprueba la conexión y vuelve a intentarlo.») y no deja nada creado.
+- **Vista:** Mercator, con el norte siempre arriba (no gira ni se inclina) y el mundo sin repetirse a los lados.
+  Empieza con el mundo habitado (de −60° a 80° de latitud) de alto; se puede alejar hasta que el mundo llena el mapa
+  (en un teléfono en vertical, unos 180° de ancho).
+- **Zoom,** en unidades de MapLibre (el mundo mide 512 px en el nivel 0), exportados: `ZOOM_PAISES` 2,5,
+  `ZOOM_FOTOS` 3,3, `ZOOM_PUNTO` 10, `TOPE_ENCUADRE` 14 y `ZOOM_MAXIMO` 18.
+- **El fondo «Papel»:** nombres en español por importancia al acercar (países y capitales, ciudades, pueblos y, de
+  cerca, barrios) y límites grises (los de provincias y municipios, a trazos desde el zoom 7). Debajo va siempre el
+  mundo de world-atlas (mar, tierra y costas): si las teselas no llegan, se ve el mapa de papel con los países
+  visitados y los pinchos.
+- `mapa.pintar(pinchos, { resaltar } = {})`: cada pincho es un objeto con, al menos, `{ id, nombre, lat, lon, pais }`
+  (las filas de `mundi_pinchos` valen tal cual), y puede llevar `forma`, `portada` (la URL de una imagen) y `estado`.
+  Sustituye lo pintado antes y no mueve la cámara. Pinta en suave los países visitados (se desvanecen entre los zooms
+  5 y 8) y, en fuerte, cada lugar: su `forma` (GeoJSON) si pasa `formaValida(forma)` (exportada) o, si no, una mancha
+  de 9 km alrededor (de cerca se aclara: desde el zoom 12, solo el borde). Un contorno roto nunca impide dibujar el
+  mapa. Un pincho con `estado: "quiero_ir"` va en el color `--deseo`, sin polaroid, y no pinta ni su país ni su lugar.
+  `resaltar` es el `id` de un pincho que entra con animación (el recién guardado).
+- **Marcas** (una capa SVG propia sobre el lienzo, en px de pantalla): por debajo de `ZOOM_PAISES`, un punto por país
+  con el número de lugares, en su lugar más céntrico (los pinchos sin país, cada uno solo; dos puntos que se tapan se
+  juntan y pierden el país; un país con un solo lugar se ve con su pincho, sin «1»). Desde ahí, los pinchos que en
+  pantalla quedan a menos de 24 px se agrupan en un círculo con el número (a 62 px desde `ZOOM_FOTOS`) y, desde
+  `ZOOM_FOTOS`, un pincho suelto con `portada` se dibuja como una polaroid clavada con su nombre. Cada marca se puede
+  tocar y usar con el teclado (Enter o Espacio), con su `aria-label`.
+- **Toques:** en un pincho (también el único de un país) → `alTocarPincho(pincho)`, con el mismo objeto que se pasó a
+  `pintar`; en un grupo → el mapa se acerca a sus pinchos; en el punto de un país → el país entero (su trozo más
+  grande) más sus lugares; en el mapa, fuera de las marcas → `alTocarPunto({ lat, lon, pais })`, con `lat` y `lon` en
+  grados (5 decimales, `lon` entre −180 y 180) y `pais` como en `paisEn`. No cuentan como toque arrastrar, pellizcar,
+  el doble toque para acercar (el aviso espera 300 ms) ni lo de fuera del mundo.
+- `mapa.encuadrar()`: enseña todos los pinchos, dejando libres los huecos de la Interfaz (64 px arriba, 80 a la
+  derecha, 96 abajo y 32 a la izquierda); uno solo, a `ZOOM_PUNTO`; sin pinchos, la vista inicial.
+- `mapa.irA(lat, lon, zoom = ZOOM_PUNTO)`: vuela a ese punto. El último `encuadrar` o `irA` corta al anterior;
+  `pintar` y `marcarPunto` nunca mueven la cámara.
 - `mapa.marcarPunto(lat, lon)`: pone un pincho gris provisional (el que se está creando); `mapa.marcarPunto(null)` lo
   quita.
-- `mapa.paisEn(lat, lon)` → código ISO 3166-1 alfa-2 (`ES`) o `null` si el punto no cae en ningún país.
-- **Toques:** en un pincho → `alTocarPincho(pincho)`, con el mismo objeto que se pasó a `pintar`; en un grupo → el mapa
-  se acerca a sus pinchos; en el mapa, fuera de los pinchos → `alTocarPunto({ lat, lon, pais })`, con `lat` y `lon` en
-  grados (5 decimales) y `pais` como en `paisEn`. Arrastrar o hacer zoom no cuenta como toque. Fuera de la esfera
-  del mundo no avisa.
-- **Colores:** toma las variables CSS de la página si existen (`--mar`, `--tierra`, `--tierra-borde`, `--visitado`,
-  `--visitado-borde`, `--pin`, `--tinta`, `--tinta-2`, `--tinta-3`, `--sup`, `--grat`) y, si no, los de la demo. Sus
-  clases empiezan por `mm-`, para no chocar con las de la Interfaz.
+- `mapa.paisEn(lat, lon)` → código ISO 3166-1 alfa-2 (`ES`) o `null` si el punto no cae en ningún país. Es síncrono y
+  vale para cualquier punto (world-atlas y `d3.geoContains`; tabla `ISO`, más Kosovo `XK`, N. Cyprus `CY` y
+  Somaliland `SO`).
+- **Colores:** el fondo lleva los fijos de «Papel». Lo de Mundi toma de la página `--pin`, `--deseo`, `--visitado`,
+  `--visitado-borde`, `--sup`, `--postal`, `--tinta`, `--tinta-2` y `--tinta-3` si son colores sencillos (hex, rgb o
+  hsl); si no, y siempre de noche (el mapa sigue en «Papel» claro), los claros de `style.css`. Sus clases empiezan por
+  `mm-`, para no chocar con las de la Interfaz; las de MapLibre, por `maplibregl-`.
+- **Atribución** (obligatoria): el control compacto de MapLibre, abajo a la izquierda, con la de OpenFreeMap,
+  OpenMapTiles y OpenStreetMap más «Natural Earth».
+- Lo que cruza la línea de cambio de fecha (Rusia, Fiyi, un contorno o una mancha junto a ella) se parte en dos para
+  el mapa plano (`partirEnLaFecha`); un anillo que rodea un polo (la Antártida) se queda como está.
 
 ## Interfaz — la app
 
@@ -140,7 +172,10 @@ Ficheros: `index.html`, `app.js`, `style.css` y `config.js`. Usa los Contratos B
 
 - **`config.js`** (módulo ES), solo lo público: `SUPABASE_URL` y `SUPABASE_CLAVE` (la clave publicable). Es el
   proyecto de la App de avisos.
-- **Librerías**, con versión fijada y SRI: d3 7.9.0 y topojson 3.0.2 (cdnjs) y supabase-js 2.112.4 (jsdelivr).
+- **Librerías**, con versión fijada y SRI: d3 7.9.0 y topojson 3.0.2 (cdnjs), MapLibre GL JS 5.24.0 (jsdelivr; su CSS
+  antes de `style.css` y su JS con `defer`, antes de `app.js`) y supabase-js 2.112.4 (jsdelivr).
+- **El contenedor del mapa** (`.zona-mapa > .mapa`) aísla los z-index de MapLibre (`isolation: isolate`), y la franja
+  «Mapa de X» deja sitio debajo para la atribución del mapa.
 - **Sesión:** correo y contraseña de la cuenta de Supabase. Se guarda aparte de la de la App de avisos (clave
   `mundi-sesion`), y «Salir» cierra solo la de este dispositivo.
 - **Buscar un lugar, nombrar un punto y su contorno:** Nominatim de OpenStreetMap, sin cuenta. Solo se le envía el
@@ -227,27 +262,6 @@ avisos está en `docs/puente-avisos.md`.
 - Si no lo ofrece y la app no está instalada, la pantalla de entrar da una pista: en Chrome, menú ⋮ → «Instalar
   app»; en iPhone, Compartir → «Añadir a pantalla de inicio».
 - Ya instalada (`display-mode: standalone`), no aparece nada. Al instalarse (`appinstalled`), lo dice.
-
-## Mapa — un punto por país y líneas de regiones al acercar (añadido)
-
-Ficheros nuevos: `datos/limites.json` (lo genera `setup/limites.mjs` desde Natural Earth; prueba
-`setup/pruebas/limites.test.mjs`).
-
-- **De lejos (zoom < `ZOOM_PAISES` = 2,5), solo los países:** un punto por país (círculo con el número de lugares),
-  en el lugar suyo más céntrico, con el nombre del país en español debajo si no lo tapa otro punto; los pinchos sin
-  país, cada uno solo; dos puntos que quedan encima se juntan (sin nombre). Tocar el punto de un país acerca el mapa
-  a ese país entero (su trozo más grande, más sus lugares), ya por encima de `ZOOM_PAISES`. No hay líneas grises.
-  Un país con un solo lugar no lleva círculo con «1»: se ve su pincho (con el nombre del país debajo) y tocarlo abre
-  su ficha.
-- **Desde `ZOOM_PAISES`,** como antes: los pinchos (los cercanos en pantalla, juntos con su número) y, desde el zoom
-  4, las polaroids.
-- **Líneas grises de regiones y provincias:** desde `ZOOM_PAISES`, cada capa (país y nivel) aparece poco a poco cuando
-  el mapa llega al zoom que propone Natural Earth menos 2 niveles (zoom web: el mundo mide 256 px en el nivel 0), y
-  solo se dibujan las que caen en pantalla. Color: la variable `--limite`. Van por debajo de los lugares y no se tocan.
-- **`datos/limites.json` (limites.v1):** `{ tipo: "limites.v1", fuente, paises: [{ pais, niveles: [{ z, lineas }] }] }`;
-  `pais`, el código ISO de 3 letras; `z`, el zoom web de Natural Earth; cada línea, en milésimas de grado y en
-  diferencias: `[lon0, lat0, dlon1, dlat1, …]`. Se pide (junto a `mapa.js`) la primera vez que hace falta; si no
-  llega, el mapa sigue sin líneas y lo vuelve a pedir como pronto al minuto. Lo que no tenga esa forma se ignora.
 
 ## Interfaz — la ficha como pantalla aparte (añadido)
 

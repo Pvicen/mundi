@@ -20,6 +20,7 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | «Quiero ir» (sitios pendientes, en otro color) y «Compartir» un lugar (también hacia la App de avisos) | Hecho |
 | Botón «Instalar Mundi» (al entrar y en el perfil; si el navegador no lo ofrece, una pista de cómo hacerlo) | Hecho |
 | De lejos, un punto por país; al acercar, los pinchos y las líneas grises de regiones y provincias | Hecho |
+| El mapa «como Google Maps» (MapLibre y OpenStreetMap, fondo «Papel»): nombres en español al acercar, hasta los barrios, y límites grises; debajo, el mundo de papel por si no hay conexión | Hecho en la rama `feature/mapa-maplibre` (23/11/2026); falta la revisión, su prueba y publicarlo |
 | La ficha de un lugar como pantalla aparte (diseño «Diario»), con el «atrás» del teléfono | Hecho |
 | En la ficha, una muestra de fotos y su propia pantalla con todas; logo «Mapa plegado» | Hecho |
 | Valoración y experiencias de cada lugar (comer, dormir, visitar, hacer, consejo) | Hecho; falta ejecutar su SQL |
@@ -34,6 +35,8 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
   guarda aparte de la de avisos aunque compartan dominio.
 - **Buscar lugares:** Nominatim de OpenStreetMap, sin cuenta. Solo recibe el texto buscado o las coordenadas del
   punto elegido, para sugerir su nombre.
+- **El mapa:** MapLibre GL JS con las teselas de OpenStreetMap que sirve OpenFreeMap, sin cuenta ni clave; la
+  atribución va en el propio mapa. Los países (para los visitados y el país de un punto) son los de Natural Earth.
 - **Contratos entre las partes:** `docs/contratos.md`.
 
 | Fichero | Qué es |
@@ -47,10 +50,9 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | `copia.js` | Arma el .zip de la copia de seguridad (sin librerías) |
 | `puente.js` | El texto que se comparte de un lugar (nombre y enlace de Google Maps); acuerdo en `docs/puente-avisos.md` |
 | `experiencias.js` | Los tipos de experiencia y sus reglas (las mismas que la base) |
-| `prueba-mapa.html` | Prueba del mapa «como Google Maps» (camino B: MapLibre + OpenFreeMap), con pinchos inventados; temporal, para verla en el teléfono antes de cambiar el mapa de la app |
 | `setup/migraciones/2026-10-23-compartir-y-experiencias.sql` | Compartir el mapa en solo lectura y las experiencias; su prueba, `setup/pruebas/bd-compartir.md` |
-| `mapa.js` | El mapamundi (d3 y Natural Earth a 1:50 millones); se prueba en `setup/pruebas/mapa.html` |
-| `datos/limites.json` | Las líneas grises de regiones y provincias (Natural Earth 1:10 millones, dominio público); se rehace con `node setup/limites.mjs <geojson>` (la URL, en su cabecera) |
+| `mapa.js` | El mapamundi (MapLibre con las teselas de OpenFreeMap y, debajo, Natural Earth a 1:50 millones); se prueba en `setup/pruebas/mapa.html` |
+| `datos/papel.json` | El fondo «Papel» del mapa: el estilo `liberty` de OpenFreeMap con los colores de Mundi y los nombres en español; se rehace con `node setup/papel.mjs` |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Lo que permite instalarla y abrirla sin conexión |
 | `setup/iconos.py` | Dibuja los iconos (`py -3 setup/iconos.py`, con Pillow) |
 | `demo/mundi.html` | El prototipo de diseño, con datos inventados |

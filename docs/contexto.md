@@ -64,7 +64,8 @@ Vicente: «soy solo yo, y sigo lo que recomiendas y propones».
   Motivo: el plan gratuito pausa un proyecto tras una semana sin uso y la App de avisos lo mantiene activo; además,
   la cuenta ya existe. A cambio, comparten el 1 GB gratis de almacenamiento.
 - Fotos: comprimirlas en el teléfono y **quitarles el GPS (EXIF)** antes de subirlas.
-- El mapa: el mismo enfoque de la demo (d3 con Natural Earth), con una geometría de más resolución.
+- El mapa: el mismo enfoque de la demo (d3 con Natural Earth), con una geometría de más resolución. Desde el 23/11,
+  MapLibre con OpenStreetMap (punto 6).
 - Publicación: repositorio público `Pvicen/mundi` en GitHub Pages. El código es público; los datos y las fotos, privados
   en Supabase.
 - **Cajas, en este orden:** BD (crítica) → lote de Fotos, Cáscara PWA y Documentación → Mapa (crítica) → Interfaz
@@ -91,5 +92,11 @@ Vicente: «soy solo yo, y sigo lo que recomiendas y propones».
   `2026-10-23-compartir-y-experiencias.sql` ejecutada (PASA) y su prueba `setup/pruebas/bd-compartir.md` (29 PASA).
   Publicado. Pendiente: dar de alta a su suegro y compartirle el mapa; «Cambiar contraseña» y qué hacer con los
   olvidos, sin decidir.
+- **31/10 y 23/11, el mapa «como Google Maps»** (lo pidió su suegro: nombres por importancia al acercar, hasta los
+  barrios, y los límites). Camino B: MapLibre con las teselas de OpenStreetMap (OpenFreeMap), probado en una página
+  de prueba publicada; el 23/11 eligieron el estilo «Papel». Contrato 387 aprobado («Sí, todas A»): Mercator; «ir a un
+  lugar», a zoom de ciudad; de noche, el mapa sigue en «Papel» claro; sin conexión, lo ya visto más el mundo de papel
+  de siempre; sin el nombre del país bajo su punto. Hecho en la rama `feature/mapa-maplibre` (sin SQL). Falta la
+  revisión de GPT, su prueba en el teléfono y publicarlo.
 - Pendiente de Vicente: verificar cada Caja al terminarla y ejecutar el SQL en Supabase. Lo que tenga que pegar se
   le da completo y ya rellenado.
