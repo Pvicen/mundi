@@ -20,11 +20,11 @@ Publicada en **https://pvicen.github.io/mundi/** (GitHub Pages, rama `main`).
 | «Quiero ir» (sitios pendientes, en otro color) y «Compartir» un lugar (también hacia la App de avisos) | Hecho |
 | Botón «Instalar Mundi» (al entrar y en el perfil; si el navegador no lo ofrece, una pista de cómo hacerlo) | Hecho |
 | De lejos, un punto por país; al acercar, los pinchos y las líneas grises de regiones y provincias | Hecho |
-| El mapa «como Google Maps» (MapLibre y OpenStreetMap, fondo «Papel»): nombres en español al acercar, hasta los barrios, y límites grises; debajo, el mundo de papel por si no hay conexión | Hecho en la rama `feature/mapa-maplibre` (23/11/2026); falta la revisión, su prueba y publicarlo |
+| El mapa «como Google Maps» (MapLibre y OpenStreetMap, fondo «Papel»): nombres en español al acercar, hasta los barrios, y límites grises; debajo, el mundo de papel por si no hay conexión | Hecho y publicado (23/11/2026); falta su prueba en el teléfono |
 | La ficha de un lugar como pantalla aparte (diseño «Diario»), con el «atrás» del teléfono | Hecho |
 | En la ficha, una muestra de fotos y su propia pantalla con todas; logo «Mapa plegado» | Hecho |
-| Valoración y experiencias de cada lugar (comer, dormir, visitar, hacer, consejo) | Hecho; falta ejecutar su SQL |
-| Compartir tu mapa, en solo lectura, con quien tú elijas; ver los mapas que te comparten | Hecho; falta ejecutar su SQL |
+| Valoración y experiencias de cada lugar (comer, dormir, visitar, hacer, consejo) | Hecho; su SQL, ejecutado (24/10/2026) |
+| Compartir tu mapa, en solo lectura, con quien tú elijas; ver los mapas que te comparten | Hecho; su SQL, ejecutado (24/10/2026) |
 
 ## Cómo está hecha
 

@@ -96,7 +96,9 @@ Vicente: «soy solo yo, y sigo lo que recomiendas y propones».
   barrios, y los límites). Camino B: MapLibre con las teselas de OpenStreetMap (OpenFreeMap), probado en una página
   de prueba publicada; el 23/11 eligieron el estilo «Papel». Contrato 387 aprobado («Sí, todas A»): Mercator; «ir a un
   lugar», a zoom de ciudad; de noche, el mapa sigue en «Papel» claro; sin conexión, lo ya visto más el mundo de papel
-  de siempre; sin el nombre del país bajo su punto. Hecho en la rama `feature/mapa-maplibre` (sin SQL). Falta la
-  revisión de GPT, su prueba en el teléfono y publicarlo.
+  de siempre; sin el nombre del país bajo su punto. Hecho en la rama `feature/mapa-maplibre` (sin SQL). Sin plan de
+  GPT hasta diciembre, la revisión final la hizo Claude: un fallo grave arreglado (los créditos del mapa, que MapLibre
+  pone como HTML, van fijos en `datos/papel.json`) y dos menores a la deuda. Publicado el 23/11 (`3a32daa`). Falta
+  su prueba en el teléfono, con su suegro.
 - Pendiente de Vicente: verificar cada Caja al terminarla y ejecutar el SQL en Supabase. Lo que tenga que pegar se
   le da completo y ya rellenado.
